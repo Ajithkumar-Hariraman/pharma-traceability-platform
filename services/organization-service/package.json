@@ -1,0 +1,33 @@
+{
+  "name": "@pharma/organization-service",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsc-watch -p tsconfig.json --onSuccess \"node dist/main.js\"",
+    "build": "prisma generate && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@pharma/config": "workspace:*",
+    "@pharma/contracts": "workspace:*",
+    "@pharma/logger": "workspace:*",
+    "@prisma/client": "6.19.0",
+    "nestjs-pino": "^4.4.0",
+    "pino": "^10.0.0",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "prisma": "6.19.0"
+  }
+}

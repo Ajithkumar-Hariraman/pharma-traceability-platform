@@ -1,0 +1,55 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum OrganizationStatus {
+ ACTIVE
+ INACTIVE
+}
+enum FacilityType {
+ MANUFACTURER
+ DISTRIBUTOR
+ WHOLESALER
+ DISPENSER
+}
+enum MembershipRole {
+ ORG_ADMIN
+ OPERATOR
+ VIEWER
+}
+model Organization {
+ id String @id @default(uuid()) @db.Uuid
+ legalName String @db.VarChar(200)
+ status OrganizationStatus @default(ACTIVE)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ facilities Facility[]
+ memberships Membership[]
+}
+model Facility {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+ name String @db.VarChar(200)
+ type FacilityType
+ gln String? @unique @db.VarChar(13)
+ status OrganizationStatus @default(ACTIVE)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@index([organizationId])
+}
+model Membership {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+ userId String @db.Uuid
+ role MembershipRole
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@unique([userId, organizationId])
+ @@index([organizationId])
+}

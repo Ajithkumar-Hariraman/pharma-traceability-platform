@@ -1,0 +1,28 @@
+name: pharma-traceability-platform
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: auth_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infrastructure/docker/.env}
+      ORGANIZATION_DB_PASSWORD: ${ORGANIZATION_DB_PASSWORD:?Set ORGANIZATION_DB_PASSWORD}
+      PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
+      BATCH_DB_PASSWORD: ${BATCH_DB_PASSWORD:?Set BATCH_DB_PASSWORD}
+      SERIALIZATION_DB_PASSWORD: ${SERIALIZATION_DB_PASSWORD:?Set SERIALIZATION_DB_PASSWORD}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
+    volumes:
+      - ./init-organization.sh:/docker-entrypoint-initdb.d/02-organization.sh:ro
+      - ./init-product.sh:/docker-entrypoint-initdb.d/03-product.sh:ro
+      - ./init-batch.sh:/docker-entrypoint-initdb.d/04-batch.sh:ro
+      - ./init-serialization.sh:/docker-entrypoint-initdb.d/05-serialization.sh:ro
+      - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U auth_owner -d auth']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  auth_postgres_data:

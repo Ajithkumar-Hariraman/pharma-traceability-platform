@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+coverage/
+
+*.log
+*.pem
+*.key
+.DS_Store
+
+services/organization-service/generated/
+services/product-service/generated/
+services/batch-service/generated/
+services/serialization-service/generated/

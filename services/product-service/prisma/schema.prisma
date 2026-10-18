@@ -1,0 +1,44 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum ProductStatus {
+ ACTIVE
+ INACTIVE
+}
+enum PackagingLevel {
+ EACH
+ INNER
+ CASE
+ PALLET
+}
+model Product {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ name String @db.VarChar(200)
+ description String? @db.VarChar(4000)
+ manufacturerName String? @db.VarChar(200)
+ status ProductStatus @default(ACTIVE)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ gtins GTIN[]
+ @@unique([id, organizationId])
+ @@index([organizationId, status])
+}
+model GTIN {
+ id String @id @default(uuid()) @db.Uuid
+ productId String @db.Uuid
+ organizationId String @db.Uuid
+ product Product @relation(fields: [productId, organizationId], references: [id, organizationId], onDelete: Restrict)
+ gtin String @unique @db.VarChar(14)
+ packagingLevel PackagingLevel
+ status ProductStatus @default(ACTIVE)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@index([organizationId])
+ @@index([productId, organizationId])
+}

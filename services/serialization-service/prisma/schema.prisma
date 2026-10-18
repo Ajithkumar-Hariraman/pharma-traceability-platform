@@ -1,0 +1,34 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum SerializedItemStatus {
+ CREATED
+ COMMISSIONED
+ DECOMMISSIONED
+ QUARANTINED
+}
+model SerializedItem {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ productId String @db.Uuid
+ gtinId String @db.Uuid
+ batchId String @db.Uuid
+ serialNumber String @db.VarChar(100)
+ status SerializedItemStatus @default(CREATED)
+ commissionedAt DateTime? @db.Timestamptz(3)
+ decommissionedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@unique([gtinId, serialNumber])
+ @@index([organizationId])
+ @@index([batchId])
+ @@index([gtinId])
+ @@index([status])
+ @@index([serialNumber])
+ @@index([commissionedAt])
+}

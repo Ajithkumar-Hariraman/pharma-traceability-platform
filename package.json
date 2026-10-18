@@ -1,0 +1,46 @@
+{
+  "name": "pharma-traceability-platform",
+  "private": true,
+  "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=10 <11"
+  },
+  "scripts": {
+    "dev": "pnpm build && pnpm -r --parallel dev",
+    "dev:gateway": "pnpm --filter @pharma/api-gateway... build && pnpm --filter @pharma/api-gateway dev",
+    "dev:auth": "pnpm --filter @pharma/auth-service... build && pnpm --filter @pharma/auth-service dev",
+    "dev:web": "pnpm --filter @pharma/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "pnpm build && node --test --test-concurrency=1 tests/*.test.cjs",
+    "infra:up": "docker compose --env-file infrastructure/docker/.env -f infrastructure/docker/compose.yaml up -d --wait",
+    "infra:down": "docker compose --env-file infrastructure/docker/.env -f infrastructure/docker/compose.yaml down",
+    "db:generate": "pnpm --filter @pharma/auth-service db:generate",
+    "db:migrate": "pnpm --filter @pharma/auth-service db:migrate",
+    "db:deploy": "pnpm --filter @pharma/auth-service db:deploy",
+    "dev:organization": "pnpm --filter @pharma/organization-service... build && pnpm --filter @pharma/organization-service dev",
+    "db:organization:generate": "pnpm --filter @pharma/organization-service db:generate",
+    "db:organization:deploy": "pnpm --filter @pharma/organization-service db:deploy",
+    "dev:product": "pnpm --filter @pharma/product-service... build && pnpm --filter @pharma/product-service dev",
+    "db:product:generate": "pnpm --filter @pharma/product-service db:generate",
+    "db:product:deploy": "pnpm --filter @pharma/product-service db:deploy",
+    "dev:batch": "pnpm --filter @pharma/batch-service... build && pnpm --filter @pharma/batch-service dev",
+    "db:batch:generate": "pnpm --filter @pharma/batch-service db:generate",
+    "db:batch:deploy": "pnpm --filter @pharma/batch-service db:deploy",
+    "dev:serialization": "pnpm --filter @pharma/serialization-service... build && pnpm --filter @pharma/serialization-service dev",
+    "db:serialization:generate": "pnpm --filter @pharma/serialization-service db:generate",
+    "db:serialization:deploy": "pnpm --filter @pharma/serialization-service db:deploy"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.39.0",
+    "@eslint/js": "^9.39.0",
+    "typescript-eslint": "^8.46.0",
+    "prettier": "^3.6.2",
+    "tsc-watch": "^7.2.0"
+  }
+}
