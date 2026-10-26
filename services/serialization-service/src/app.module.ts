@@ -8,7 +8,10 @@ import { LoggerModule } from 'nestjs-pino';
 import { PrismaService } from './persistence/prisma.service';
 import { SerializationRepository } from './serialization.repository';
 import { SerializationService } from './serialization.service';
-import { SerializationController } from './serialization.controller';
+import {
+  SerializationController,
+  SerialReferenceController,
+} from './serialization.controller';
 import { InternalIdentityGuard } from './authorization';
 import { HealthController } from './health.controller';
 @Module({
@@ -27,7 +30,11 @@ import { HealthController } from './health.controller';
       }),
     }),
   ],
-  controllers: [SerializationController, HealthController],
+  controllers: [
+    SerialReferenceController,
+    SerializationController,
+    HealthController,
+  ],
   providers: [
     PrismaService,
     SerializationRepository,

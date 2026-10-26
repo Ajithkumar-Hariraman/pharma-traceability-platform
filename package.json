@@ -35,15 +35,18 @@
     "db:serialization:deploy": "pnpm --filter @pharma/serialization-service db:deploy",
     "dev:traceability": "pnpm --filter @pharma/traceability-service... build && pnpm --filter @pharma/traceability-service dev",
     "db:traceability:generate": "pnpm --filter @pharma/traceability-service db:generate",
-    "db:traceability:deploy": "pnpm --filter @pharma/traceability-service db:deploy"
+    "db:traceability:deploy": "pnpm --filter @pharma/traceability-service db:deploy",
+    "dev:aggregation": "pnpm --filter @pharma/aggregation-service... build && pnpm --filter @pharma/aggregation-service dev",
+    "db:aggregation:generate": "pnpm --filter @pharma/aggregation-service db:generate",
+    "db:aggregation:deploy": "pnpm --filter @pharma/aggregation-service db:deploy"
   },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "@types/node": "^24.0.0",
-    "eslint": "^9.39.0",
     "@eslint/js": "^9.39.0",
-    "typescript-eslint": "^8.46.0",
+    "@types/node": "^24.19.1",
+    "eslint": "^9.39.0",
     "prettier": "^3.6.2",
-    "tsc-watch": "^7.2.0"
+    "tsc-watch": "^7.2.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0"
   }
 }

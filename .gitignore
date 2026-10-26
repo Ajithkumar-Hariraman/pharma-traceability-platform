@@ -16,3 +16,4 @@ services/product-service/generated/
 services/batch-service/generated/
 services/serialization-service/generated/
 services/traceability-service/generated/
+services/aggregation-service/generated/
