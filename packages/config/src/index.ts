@@ -59,6 +59,7 @@ export interface AuthEnvironment extends AppEnvironment {
 export interface GatewayEnvironment extends AppEnvironment {
   AUTH_SERVICE_URL: string;
   AUTH_SERVICE_TIMEOUT_MS: number;
+  AGGREGATION_SERVICE_URL?: string;
   SERIALIZATION_SERVICE_URL?: string;
   BATCH_SERVICE_URL?: string;
   PRODUCT_SERVICE_URL?: string;
@@ -131,6 +132,20 @@ export function validateGatewayEnvironment(
     ...validateEnvironment(input, 3000),
     AUTH_SERVICE_URL: url.toString().replace(/\/$/, ''),
     AUTH_SERVICE_TIMEOUT_MS: timeout,
+    ...(input.AGGREGATION_SERVICE_URL !== undefined
+      ? (() => {
+          if (!input.ORGANIZATION_SERVICE_URL)
+            throw new Error(
+              'ORGANIZATION_SERVICE_URL is required for Aggregation Service',
+            );
+          return {
+            AGGREGATION_SERVICE_URL: validateServiceUrl(
+              input.AGGREGATION_SERVICE_URL,
+              'AGGREGATION_SERVICE_URL',
+            ),
+          };
+        })()
+      : {}),
     ...(input.SERIALIZATION_SERVICE_URL !== undefined
       ? (() => {
           const base = validateServiceUrl(
@@ -313,5 +328,33 @@ export function validateSerializationEnvironment(
       'BATCH_SERVICE_URL',
     ),
     BATCH_SERVICE_TIMEOUT_MS: Number(raw),
+  };
+}
+
+export interface AggregationEnvironment extends OrganizationEnvironment {
+  SERIALIZATION_SERVICE_URL: string;
+  SERIALIZATION_SERVICE_TIMEOUT_MS: number;
+}
+export function validateAggregationEnvironment(
+  input: Record<string, unknown>,
+): AggregationEnvironment {
+  const raw = input.SERIALIZATION_SERVICE_TIMEOUT_MS ?? 2000;
+  if (
+    (typeof raw !== 'string' && typeof raw !== 'number') ||
+    !/^\d+$/.test(String(raw)) ||
+    Number(raw) < 1 ||
+    Number(raw) > 30000
+  )
+    throw new Error(
+      'SERIALIZATION_SERVICE_TIMEOUT_MS must be an integer between 1 and 30000',
+    );
+  return {
+    ...validateOrganizationEnvironment(input),
+    ...validateEnvironment(input, 3006),
+    SERIALIZATION_SERVICE_URL: validateServiceUrl(
+      input.SERIALIZATION_SERVICE_URL,
+      'SERIALIZATION_SERVICE_URL',
+    ),
+    SERIALIZATION_SERVICE_TIMEOUT_MS: Number(raw),
   };
 }

@@ -5,7 +5,8 @@ export interface HealthResponse {
     | 'organization-service'
     | 'product-service'
     | 'batch-service'
-    | 'serialization-service';
+    | 'serialization-service'
+    | 'aggregation-service';
   status: 'ok';
 }
 
@@ -141,7 +142,7 @@ export interface ProductReference {
 }
 export function canWriteOrganizationResource(
   role: OrganizationRole,
-  resource: 'product' | 'batch' | 'serialization',
+  resource: 'product' | 'batch' | 'serialization' | 'aggregation',
 ): boolean {
   return (
     role === 'ORG_ADMIN' || (resource !== 'product' && role === 'OPERATOR')
@@ -213,4 +214,30 @@ export function normalizeSerialNumber(value: string): string | null {
     )
     ? serial
     : null;
+}
+
+export const aggregatePackagingLevels = ['INNER', 'CASE', 'PALLET'] as const;
+export type AggregatePackagingLevel = (typeof aggregatePackagingLevels)[number];
+export function canAggregate(
+  child: 'EACH' | PackagingLevel,
+  parent: PackagingLevel,
+): boolean {
+  return child === 'EACH'
+    ? parent === 'INNER' || parent === 'CASE'
+    : child === 'INNER'
+      ? parent === 'CASE' || parent === 'PALLET'
+      : child === 'CASE' && parent === 'PALLET';
+}
+export interface AggregateContainer {
+  id: string;
+  organizationId: string;
+  containerCode: string;
+  packagingLevel: AggregatePackagingLevel;
+  status: 'ACTIVE' | 'CLOSED' | 'DECOMMISSIONED';
+  createdAt: string;
+  updatedAt: string;
+}
+export interface AggregateHierarchy extends AggregateContainer {
+  children: AggregateHierarchy[];
+  items: SerializedItem[];
 }

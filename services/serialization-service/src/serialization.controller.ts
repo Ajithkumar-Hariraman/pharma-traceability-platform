@@ -108,3 +108,15 @@ export class SerializationController {
     );
   }
 }
+
+@Controller('internal/organizations/:organizationId/serials')
+@UseGuards(InternalIdentityGuard)
+export class SerialReferenceController {
+  constructor(private readonly service: SerializationService) {}
+  @Get(':serialId/validation') get(
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
+    @Param('serialId', ParseUUIDPipe) serialId: string,
+  ) {
+    return this.service.get(organizationId, serialId);
+  }
+}

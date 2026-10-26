@@ -15,3 +15,4 @@ services/organization-service/generated/
 services/product-service/generated/
 services/batch-service/generated/
 services/serialization-service/generated/
+services/aggregation-service/generated/

@@ -5,6 +5,7 @@ import {
   canWriteOrganizationResource,
   canExecuteSerialCommand,
   canTransitionSerial,
+  type AggregateContainer,
   type SerializedItem,
   type Batch,
   type Product,
@@ -37,6 +38,7 @@ export function SerialWorkspace({
   navigate: (path: string) => void;
 }) {
   const base = `/organizations/${organizationId}`;
+  const [parent, setParent] = useState<AggregateContainer | null>(null);
   const [serial, setSerial] = useState<SerializedItem | null>(null);
   const [batch, setBatch] = useState<Batch | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
@@ -73,6 +75,13 @@ export function SerialWorkspace({
               `${base}/serials/${serialId}`,
             )
           : null;
+        if (item) {
+          const parentContainer =
+            await authenticatedRequest<AggregateContainer | null>(
+              `${base}/serials/${item.id}/parent`,
+            );
+          if (active) setParent(parentContainer);
+        }
         const ownerBatch = item?.batchId ?? batchId;
         if (!ownerBatch) throw new Error('Select a batch to manage serials');
         const lot = await authenticatedRequest<Batch>(
@@ -341,6 +350,12 @@ export function SerialWorkspace({
               {label(serial.status)}
             </span>
           </div>
+          <p>
+            Parent container:{' '}
+            {parent
+              ? link(`${base}/aggregates/${parent.id}`, parent.containerCode)
+              : 'Unaggregated'}
+          </p>
           <dl>
             <div>
               <dt>Serial number</dt>

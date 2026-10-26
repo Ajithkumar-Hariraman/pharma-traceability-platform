@@ -1,3 +1,5 @@
+import { AggregationController } from './aggregation/aggregation.controller';
+import { AggregationProxy } from './aggregation/aggregation-proxy';
 import { SerializationController } from './serialization/serialization.controller';
 import { SerializationProxy } from './serialization/serialization-proxy';
 import { BatchController } from './batches/batch.controller';
@@ -47,6 +49,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     ProductController,
     BatchController,
     SerializationController,
+    AggregationController,
   ],
   providers: [
     AuthHealthService,
@@ -55,6 +58,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     ProductProxy,
     BatchProxy,
     SerializationProxy,
+    AggregationProxy,
     GatewayIdentityGuard,
   ],
 })
