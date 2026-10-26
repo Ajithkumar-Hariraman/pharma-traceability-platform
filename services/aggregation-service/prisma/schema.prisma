@@ -1,0 +1,51 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum PackagingLevel {
+ INNER
+ CASE
+ PALLET
+}
+enum ContainerStatus {
+ ACTIVE
+ CLOSED
+ DECOMMISSIONED
+}
+enum ChildType {
+ SERIALIZED_ITEM
+ CONTAINER
+}
+model AggregateContainer {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ containerCode String @db.VarChar(100)
+ packagingLevel PackagingLevel
+ status ContainerStatus @default(ACTIVE)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ children AggregationRelation[] @relation("Parent")
+ parent AggregationRelation? @relation("Child")
+ @@unique([organizationId, containerCode])
+ @@unique([organizationId, id])
+ @@index([organizationId])
+ @@index([packagingLevel])
+ @@index([status])
+}
+model AggregationRelation {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ parentContainerId String @db.Uuid
+ childType ChildType
+ childSerializedItemId String? @unique @db.Uuid
+ childContainerId String? @unique @db.Uuid
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ parent AggregateContainer @relation("Parent", fields: [organizationId, parentContainerId], references: [organizationId, id], onDelete: Restrict)
+ child AggregateContainer? @relation("Child", fields: [childContainerId], references: [id], onDelete: Restrict)
+ @@index([organizationId])
+ @@index([parentContainerId])
+}

@@ -32,7 +32,10 @@
     "db:batch:deploy": "pnpm --filter @pharma/batch-service db:deploy",
     "dev:serialization": "pnpm --filter @pharma/serialization-service... build && pnpm --filter @pharma/serialization-service dev",
     "db:serialization:generate": "pnpm --filter @pharma/serialization-service db:generate",
-    "db:serialization:deploy": "pnpm --filter @pharma/serialization-service db:deploy"
+    "db:serialization:deploy": "pnpm --filter @pharma/serialization-service db:deploy",
+    "dev:aggregation": "pnpm --filter @pharma/aggregation-service... build && pnpm --filter @pharma/aggregation-service dev",
+    "db:aggregation:generate": "pnpm --filter @pharma/aggregation-service db:generate",
+    "db:aggregation:deploy": "pnpm --filter @pharma/aggregation-service db:deploy"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

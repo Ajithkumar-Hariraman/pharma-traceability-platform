@@ -9,6 +9,7 @@ services:
       ORGANIZATION_DB_PASSWORD: ${ORGANIZATION_DB_PASSWORD:?Set ORGANIZATION_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
       BATCH_DB_PASSWORD: ${BATCH_DB_PASSWORD:?Set BATCH_DB_PASSWORD}
+      AGGREGATION_DB_PASSWORD: ${AGGREGATION_DB_PASSWORD:?Set AGGREGATION_DB_PASSWORD}
       SERIALIZATION_DB_PASSWORD: ${SERIALIZATION_DB_PASSWORD:?Set SERIALIZATION_DB_PASSWORD}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
@@ -17,6 +18,7 @@ services:
       - ./init-product.sh:/docker-entrypoint-initdb.d/03-product.sh:ro
       - ./init-batch.sh:/docker-entrypoint-initdb.d/04-batch.sh:ro
       - ./init-serialization.sh:/docker-entrypoint-initdb.d/05-serialization.sh:ro
+      - ./init-aggregation.sh:/docker-entrypoint-initdb.d/06-aggregation.sh:ro
       - auth_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U auth_owner -d auth']
