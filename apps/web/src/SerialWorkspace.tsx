@@ -165,6 +165,15 @@ export function SerialWorkspace({
           ? failure.message
           : 'Unable to change serial status',
       );
+      // A trace capture failure can follow a committed lifecycle change.
+      try {
+        const current = await authenticatedRequest<SerializedItem>(
+          `${base}/serials/${serial.id}`,
+        );
+        setSerial(current);
+      } catch {
+        // Keep the original command error visible if state refresh also fails.
+      }
     } finally {
       setBusy(false);
     }
@@ -334,6 +343,7 @@ export function SerialWorkspace({
         <section className="welcome-panel">
           <div className="section-heading">
             <h2>Serialized item profile</h2>
+            {link(`${base}/trace/serials/${serial.id}`, 'Trace History')}
             <span
               className="status-pill capitalize"
               data-status={serial.status}

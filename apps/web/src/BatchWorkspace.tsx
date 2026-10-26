@@ -185,6 +185,9 @@ export function BatchWorkspace({
         <div>
           <p className="eyebrow">BATCH / LOT MANAGEMENT</p>
           <h1>{batch ? batch.lotNumber : 'Batches'}</h1>
+          {batch && (
+            <a href={`${base}/trace/batches/${batch.id}`}>Trace History</a>
+          )}
           <p className="muted">
             {product
               ? `${product.name} · GTIN ${gtin?.gtin ?? ''}`

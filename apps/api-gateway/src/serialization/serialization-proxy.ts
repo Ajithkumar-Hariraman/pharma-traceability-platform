@@ -110,6 +110,19 @@ export class SerializationProxy {
       );
     }
     if (!response.ok) {
+      if (response.status === 503) {
+        const failure = (await response.json().catch(() => null)) as {
+          code?: string;
+          businessStateChanged?: boolean;
+          event?: unknown;
+        } | null;
+        if (
+          failure?.code === 'TRACE_CAPTURE_FAILED' &&
+          failure.businessStateChanged === true
+        )
+          throw new HttpException(failure, 503);
+        throw new HttpException('Serialization dependency is unavailable', 503);
+      }
       await response.body?.cancel();
       const messages: Record<number, string> = {
         400: 'Invalid serial input or immutable metadata',

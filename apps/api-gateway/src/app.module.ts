@@ -1,3 +1,5 @@
+import { TraceController } from './trace/trace.controller';
+import { TraceProxy } from './trace/trace-proxy';
 import { SerializationController } from './serialization/serialization.controller';
 import { SerializationProxy } from './serialization/serialization-proxy';
 import { BatchController } from './batches/batch.controller';
@@ -47,6 +49,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     ProductController,
     BatchController,
     SerializationController,
+    TraceController,
   ],
   providers: [
     AuthHealthService,
@@ -55,6 +58,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     ProductProxy,
     BatchProxy,
     SerializationProxy,
+    TraceProxy,
     GatewayIdentityGuard,
   ],
 })

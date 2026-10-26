@@ -1,3 +1,4 @@
+import { TraceWorkspace } from './TraceWorkspace';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -381,9 +382,25 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
             >
               Batches
             </a>
+            <a
+              href={`/organizations/${organization.id}/trace`}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(`/organizations/${organization.id}/trace`);
+              }}
+            >
+              Traceability
+            </a>
           </nav>
-          {parts[2] === 'serials' ||
-          (parts[2] === 'batches' && parts[4] === 'serials') ? (
+          {parts[2] === 'trace' ? (
+            <TraceWorkspace
+              key={path}
+              organizationId={organization.id}
+              scope={parts[3]}
+              referenceId={parts[4]}
+            />
+          ) : parts[2] === 'serials' ||
+            (parts[2] === 'batches' && parts[4] === 'serials') ? (
             <SerialWorkspace
               key={organization.id}
               organizationId={organization.id}

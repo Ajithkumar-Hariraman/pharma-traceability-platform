@@ -1,3 +1,4 @@
+import { TraceCaptureClient } from './trace-capture.client';
 import { BatchValidationClient } from './batch-validation.client';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -32,6 +33,7 @@ import { HealthController } from './health.controller';
     SerializationRepository,
     SerializationService,
     BatchValidationClient,
+    TraceCaptureClient,
     InternalIdentityGuard,
   ],
 })

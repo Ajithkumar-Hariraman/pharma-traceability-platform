@@ -181,11 +181,23 @@ test(
       ...batchEnv,
       PRODUCT_SERVICE_URL: 'http://127.0.0.1:13303',
     });
+    const traceEnv = parseEnv(
+      readFileSync(
+        path.resolve(__dirname, '../services/traceability-service/.env'),
+        'utf8',
+      ),
+    );
+    await start(t, 'services/traceability-service', 13307, traceEnv);
     const serialChild = await start(
       t,
       'services/serialization-service',
       13305,
-      { ...serialEnv, BATCH_SERVICE_URL: 'http://127.0.0.1:13304' },
+      {
+        ...serialEnv,
+        BATCH_SERVICE_URL: 'http://127.0.0.1:13304',
+        TRACEABILITY_SERVICE_URL: 'http://127.0.0.1:13307',
+        TRACE_CAPTURE_SECRET: traceEnv.TRACE_CAPTURE_SECRET,
+      },
     );
     await start(t, 'apps/api-gateway', 13300, {
       AUTH_SERVICE_URL: 'http://127.0.0.1:13301',
@@ -193,6 +205,7 @@ test(
       PRODUCT_SERVICE_URL: 'http://127.0.0.1:13303',
       BATCH_SERVICE_URL: 'http://127.0.0.1:13304',
       SERIALIZATION_SERVICE_URL: 'http://127.0.0.1:13305',
+      TRACEABILITY_SERVICE_URL: 'http://127.0.0.1:13307',
       INTERNAL_IDENTITY_SECRET: env.INTERNAL_IDENTITY_SECRET,
       AUTH_SERVICE_TIMEOUT_MS: '5000',
     });
@@ -685,6 +698,36 @@ test(
     const quarantined2 = await q2response.json();
     assert.ok(quarantined2.commissionedAt);
     assert.equal(quarantined2.decommissionedAt, null);
+    // Operational commands synchronously create tenant-scoped trace history through Gateway.
+    for (const member of [admin, operator, viewer]) {
+      const historyResponse = await call(
+        `${base}/trace/serials/${item.id}`,
+        'GET',
+        undefined,
+        member.token,
+      );
+      assert.equal(historyResponse.status, 200);
+      const history = await historyResponse.json();
+      assert.deepEqual(
+        history.items.map((event) => event.businessStep),
+        ['commissioning', 'decommissioning'],
+      );
+      assert(
+        history.items.every(
+          (event) => event.batchId === b.id && event.organizationId === ids[0],
+        ),
+      );
+    }
+    const quarantineHistory = await (
+      await call(
+        `${base}/trace/serials/${q.id}`,
+        'GET',
+        undefined,
+        viewer.token,
+      )
+    ).json();
+    assert.equal(quarantineHistory.items[0].businessStep, 'holding');
+    assert.equal(quarantineHistory.items[0].disposition, 'quarantined');
     // No cross-service database access is possible with serialization credentials.
     const {
       PrismaClient,

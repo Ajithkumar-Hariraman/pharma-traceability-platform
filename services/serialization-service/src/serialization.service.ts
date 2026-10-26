@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { TraceCaptureClient } from './trace-capture.client';
 import {
   Injectable,
   BadRequestException,
@@ -49,6 +51,7 @@ export class SerializationService {
   constructor(
     private readonly repository: SerializationRepository,
     private readonly batches: BatchValidationClient,
+    private readonly trace: TraceCaptureClient,
   ) {}
   async create(
     organizationId: string,
@@ -165,6 +168,35 @@ export class SerializationService {
       throw new ConflictException(
         'Invalid serialized item lifecycle transition',
       );
+    await this.trace.capture({
+      organizationId,
+      eventId: randomUUID(),
+      eventType: 'OBJECT',
+      action:
+        command === 'commission'
+          ? 'ADD'
+          : command === 'decommission'
+            ? 'DELETE'
+            : 'OBSERVE',
+      businessStep:
+        command === 'commission'
+          ? 'commissioning'
+          : command === 'decommission'
+            ? 'decommissioning'
+            : 'holding',
+      disposition:
+        command === 'quarantine'
+          ? 'quarantined'
+          : command === 'decommission'
+            ? 'inactive'
+            : 'active',
+      eventTime: result.updatedAt.toISOString(),
+      serializedItemId: result.id,
+      batchId: result.batchId,
+      productId: result.productId,
+      gtinId: result.gtinId,
+      metadata: { command, userId },
+    });
     return result;
   }
   private async unique<T>(operation: () => Promise<T>): Promise<T> {

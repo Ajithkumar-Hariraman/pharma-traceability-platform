@@ -1,0 +1,45 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum TraceEventType {
+ OBJECT
+ AGGREGATION
+ TRANSACTION
+}
+enum TraceAction {
+ ADD
+ OBSERVE
+ DELETE
+}
+model TraceEvent {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ eventId String @unique @db.VarChar(200)
+ eventType TraceEventType
+ action TraceAction
+ businessStep String? @db.VarChar(200)
+ disposition String? @db.VarChar(200)
+ eventTime DateTime @db.Timestamptz(3)
+ recordTime DateTime @default(now()) @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ facilityId String? @db.Uuid
+ productId String? @db.Uuid
+ gtinId String? @db.Uuid
+ batchId String? @db.Uuid
+ serializedItemId String? @db.Uuid
+ aggregateContainerId String? @db.Uuid
+ childContainerId String? @db.Uuid
+ parentEventId String? @db.Uuid
+ metadata Json? @db.JsonB
+ @@index([organizationId, eventTime])
+ @@index([serializedItemId, eventTime])
+ @@index([batchId, eventTime])
+ @@index([aggregateContainerId, eventTime])
+ @@index([childContainerId, eventTime])
+ @@index([eventType])
+}
