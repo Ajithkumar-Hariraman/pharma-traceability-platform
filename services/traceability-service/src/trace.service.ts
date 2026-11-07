@@ -102,9 +102,14 @@ export class TraceService {
     if (data.organizationId !== organizationId)
       throw new BadRequestException('Organization mismatch');
     if (
-      !['serialization-service', 'aggregation-service'].includes(caller) ||
+      ![
+        'serialization-service',
+        'aggregation-service',
+        'shipment-service',
+      ].includes(caller) ||
       (caller === 'serialization-service' && data.eventType !== 'OBJECT') ||
-      (caller === 'aggregation-service' && data.eventType !== 'AGGREGATION')
+      (caller === 'aggregation-service' && data.eventType !== 'AGGREGATION') ||
+      (caller === 'shipment-service' && data.eventType !== 'TRANSACTION')
     )
       throw new BadRequestException('Caller cannot capture this event type');
     const existing = await this.db.traceEvent.findUnique({

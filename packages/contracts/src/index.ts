@@ -7,6 +7,7 @@ export interface HealthResponse {
     | 'batch-service'
     | 'serialization-service'
     | 'aggregation-service'
+    | 'shipment-service'
     | 'traceability-service';
   status: 'ok';
 }
@@ -143,7 +144,7 @@ export interface ProductReference {
 }
 export function canWriteOrganizationResource(
   role: OrganizationRole,
-  resource: 'product' | 'batch' | 'serialization' | 'aggregation',
+  resource: 'product' | 'batch' | 'serialization' | 'aggregation' | 'shipment',
 ): boolean {
   return (
     role === 'ORG_ADMIN' || (resource !== 'product' && role === 'OPERATOR')
@@ -286,4 +287,27 @@ export interface AggregateContainer {
 export interface AggregateHierarchy extends AggregateContainer {
   children: AggregateHierarchy[];
   items: SerializedItem[];
+}
+
+export const shipmentStatuses = [
+  'CREATED',
+  'READY',
+  'DISPATCHED',
+  'IN_TRANSIT',
+  'RECEIVED',
+  'CANCELLED',
+] as const;
+export interface Shipment {
+  id: string;
+  organizationId: string;
+  shipmentNumber: string;
+  sourceFacilityId: string;
+  destinationFacilityId: string;
+  status: (typeof shipmentStatuses)[number];
+  dispatchedAt: string | null;
+  receivedAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contents?: { id: string; kind: string; referenceId: string }[];
 }

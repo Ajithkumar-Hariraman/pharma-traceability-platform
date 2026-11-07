@@ -1,3 +1,4 @@
+import { ShipmentWorkspace } from './ShipmentWorkspace';
 import { TraceWorkspace } from './TraceWorkspace';
 import { AggregationWorkspace } from './AggregationWorkspace';
 import { useCallback, useEffect, useState } from 'react';
@@ -405,9 +406,26 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
             >
               Aggregation
             </a>
+            <a
+              href={`/organizations/${organization.id}/shipments`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`/organizations/${organization.id}/shipments`);
+              }}
+            >
+              Shipments
+            </a>
           </nav>
 
-          {parts[2] === 'trace' ? (
+          {parts[2] === 'shipments' ? (
+            <ShipmentWorkspace
+              key={path}
+              organizationId={organization.id}
+              shipmentId={parts[3]}
+              role={role}
+              navigate={navigate}
+            />
+          ) : parts[2] === 'trace' ? (
             <TraceWorkspace
               key={path}
               organizationId={organization.id}

@@ -38,7 +38,11 @@
     "db:traceability:deploy": "pnpm --filter @pharma/traceability-service db:deploy",
     "dev:aggregation": "pnpm --filter @pharma/aggregation-service... build && pnpm --filter @pharma/aggregation-service dev",
     "db:aggregation:generate": "pnpm --filter @pharma/aggregation-service db:generate",
-    "db:aggregation:deploy": "pnpm --filter @pharma/aggregation-service db:deploy"
+    "db:aggregation:deploy": "pnpm --filter @pharma/aggregation-service db:deploy",
+    "dev:shipment": "pnpm --filter @pharma/shipment-service... build && pnpm --filter @pharma/shipment-service dev",
+    "db:shipment:generate": "pnpm --filter @pharma/shipment-service db:generate",
+    "db:shipment:deploy": "pnpm --filter @pharma/shipment-service db:deploy",
+    "test:phase10": "node --test tests/phase10.test.cjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
