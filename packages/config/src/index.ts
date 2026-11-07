@@ -61,6 +61,7 @@ export interface GatewayEnvironment extends AppEnvironment {
   AUTH_SERVICE_TIMEOUT_MS: number;
   AGGREGATION_SERVICE_URL?: string;
   SERIALIZATION_SERVICE_URL?: string;
+  TRACEABILITY_SERVICE_URL?: string;
   BATCH_SERVICE_URL?: string;
   PRODUCT_SERVICE_URL?: string;
   ORGANIZATION_SERVICE_URL?: string;
@@ -115,6 +116,13 @@ export function validateGatewayEnvironment(
     throw new Error(
       'AUTH_SERVICE_URL must not contain credentials, query parameters, or fragments',
     );
+  if (
+    input.TRACEABILITY_SERVICE_URL !== undefined &&
+    !input.ORGANIZATION_SERVICE_URL
+  )
+    throw new Error(
+      'ORGANIZATION_SERVICE_URL is required for Traceability Service',
+    );
   const rawTimeout = input.AUTH_SERVICE_TIMEOUT_MS ?? 2000;
   if (
     (typeof rawTimeout !== 'string' && typeof rawTimeout !== 'number') ||
@@ -132,6 +140,14 @@ export function validateGatewayEnvironment(
     ...validateEnvironment(input, 3000),
     AUTH_SERVICE_URL: url.toString().replace(/\/$/, ''),
     AUTH_SERVICE_TIMEOUT_MS: timeout,
+    ...(input.TRACEABILITY_SERVICE_URL !== undefined
+      ? {
+          TRACEABILITY_SERVICE_URL: validateServiceUrl(
+            input.TRACEABILITY_SERVICE_URL,
+            'TRACEABILITY_SERVICE_URL',
+          ),
+        }
+      : {}),
     ...(input.AGGREGATION_SERVICE_URL !== undefined
       ? (() => {
           if (!input.ORGANIZATION_SERVICE_URL)
@@ -304,6 +320,8 @@ export function validateBatchEnvironment(
 }
 
 export interface SerializationEnvironment extends OrganizationEnvironment {
+  TRACEABILITY_SERVICE_URL: string;
+  TRACE_CAPTURE_SECRET: string;
   BATCH_SERVICE_URL: string;
   BATCH_SERVICE_TIMEOUT_MS: number;
 }
@@ -328,6 +346,26 @@ export function validateSerializationEnvironment(
       'BATCH_SERVICE_URL',
     ),
     BATCH_SERVICE_TIMEOUT_MS: Number(raw),
+    TRACEABILITY_SERVICE_URL: validateServiceUrl(
+      input.TRACEABILITY_SERVICE_URL ?? 'http://127.0.0.1:3007',
+      'TRACEABILITY_SERVICE_URL',
+    ),
+    TRACE_CAPTURE_SECRET: validateInternalSecret(
+      input.TRACE_CAPTURE_SECRET ?? input.INTERNAL_IDENTITY_SECRET,
+    ),
+  };
+}
+
+export type TraceabilityEnvironment = OrganizationEnvironment & {
+  TRACE_CAPTURE_SECRET: string;
+};
+export function validateTraceabilityEnvironment(
+  input: Record<string, unknown>,
+): TraceabilityEnvironment {
+  return {
+    ...validateOrganizationEnvironment(input),
+    ...validateEnvironment(input, 3007),
+    TRACE_CAPTURE_SECRET: validateInternalSecret(input.TRACE_CAPTURE_SECRET),
   };
 }
 

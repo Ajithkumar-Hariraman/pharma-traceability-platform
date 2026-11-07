@@ -6,7 +6,8 @@ export interface HealthResponse {
     | 'product-service'
     | 'batch-service'
     | 'serialization-service'
-    | 'aggregation-service';
+    | 'aggregation-service'
+    | 'traceability-service';
   status: 'ok';
 }
 
@@ -216,6 +217,51 @@ export function normalizeSerialNumber(value: string): string | null {
     : null;
 }
 
+export const traceEventTypes = [
+  'OBJECT',
+  'AGGREGATION',
+  'TRANSACTION',
+] as const;
+export const traceActions = ['ADD', 'OBSERVE', 'DELETE'] as const;
+export interface TraceCapture {
+  organizationId: string;
+  eventId: string;
+  eventType: (typeof traceEventTypes)[number];
+  action: (typeof traceActions)[number];
+  eventTime: string;
+  businessStep?: string | null;
+  disposition?: string | null;
+  facilityId?: string | null;
+  productId?: string | null;
+  gtinId?: string | null;
+  batchId?: string | null;
+  serializedItemId?: string | null;
+  aggregateContainerId?: string | null;
+  childContainerId?: string | null;
+  parentEventId?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+export interface TraceEvent extends TraceCapture {
+  id: string;
+  recordTime: string;
+  createdAt: string;
+}
+export interface TracePage {
+  items: TraceEvent[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+export function traceCapturePayload(
+  method: string,
+  path: string,
+  timestamp: string,
+  caller: string,
+  organizationId: string,
+  raw: string,
+): string {
+  return JSON.stringify([method, path, timestamp, caller, organizationId, raw]);
+}
 export const aggregatePackagingLevels = ['INNER', 'CASE', 'PALLET'] as const;
 export type AggregatePackagingLevel = (typeof aggregatePackagingLevels)[number];
 export function canAggregate(

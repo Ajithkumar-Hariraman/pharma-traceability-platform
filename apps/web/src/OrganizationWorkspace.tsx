@@ -1,3 +1,4 @@
+import { TraceWorkspace } from './TraceWorkspace';
 import { AggregationWorkspace } from './AggregationWorkspace';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -364,6 +365,7 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
             >
               Facilities & memberships
             </a>
+
             <a
               href={`/organizations/${organization.id}/products`}
               onClick={(event) => {
@@ -373,6 +375,7 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
             >
               Products
             </a>
+
             <a
               href={`/organizations/${organization.id}/batches`}
               onClick={(event) => {
@@ -382,6 +385,17 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
             >
               Batches
             </a>
+
+            <a
+              href={`/organizations/${organization.id}/trace`}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(`/organizations/${organization.id}/trace`);
+              }}
+            >
+              Traceability
+            </a>
+
             <a
               href={`/organizations/${organization.id}/aggregates`}
               onClick={(event) => {
@@ -392,7 +406,15 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
               Aggregation
             </a>
           </nav>
-          {parts[2] === 'aggregates' ? (
+
+          {parts[2] === 'trace' ? (
+            <TraceWorkspace
+              key={path}
+              organizationId={organization.id}
+              scope={parts[3]}
+              referenceId={parts[4]}
+            />
+          ) : parts[2] === 'aggregates' ? (
             <AggregationWorkspace
               organizationId={organization.id}
               aggregateId={parts[3]}

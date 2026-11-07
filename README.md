@@ -133,3 +133,89 @@ Admins and operators can create, bulk-create, commission and quarantine.
 Decommissioning requires ORG_ADMIN; viewers read only. The shared policy is used
 by gateway, service and UI. Open **View serials** from a batch profile for lists,
 single/bulk forms and lifecycle actions. No EPCIS or aggregation is introduced.
+
+### Phase 9: Traceability history
+
+Traceability Service (`services/traceability-service`, port 3007) owns its separate
+`traceability` database as `traceability_owner`. Operational services retain their
+current-state ownership. This is an EPCIS-inspired internal model, not EPCIS 2.0
+capture/query conformance. No shipping, receiving, Kafka, or outbox is included.
+
+Setup: copy the service environment example, configure a separate random
+`TRACE_CAPTURE_SECRET` shared only with trusted capture producers, and set
+`TRACEABILITY_DB_PASSWORD` in the Docker environment. Set
+`TRACEABILITY_SERVICE_URL` in Gateway and Serialization Service, and the same
+capture secret in Serialization Service. Run:
+
+```sh
+pnpm install --offline
+pnpm infra:up
+# Required explicitly for an existing PostgreSQL volume:
+docker compose --env-file infrastructure/docker/.env -f infrastructure/docker/compose.yaml exec -T postgres sh /docker-entrypoint-initdb.d/07-traceability.sh
+pnpm db:traceability:generate
+pnpm db:traceability:deploy
+pnpm dev:traceability
+```
+
+The immutable `TraceEvent` has server UUID, organization, unique producer eventId,
+OBJECT/AGGREGATION/TRANSACTION type, ADD/OBSERVE/DELETE action, business step,
+disposition, eventTime, server recordTime/createdAt, optional facility/product/GTIN/
+batch/serial/container/parent-event references, and extensible JSONB metadata.
+`childContainerId` explicitly identifies nested-container events so both parent
+and child timelines find them. Cross-service references have no database foreign
+keys; producers supply authoritative relationships. The capture schema checks
+required serial/aggregation relationships and same-tenant parent events.
+TRANSACTION is reserved in the model; no transaction workflow is implemented.
+
+Public read-only routes (all ORG_ADMIN, OPERATOR, VIEWER members):
+
+- `GET /api/organizations/:organizationId/trace/events`
+- `GET /api/organizations/:organizationId/trace/events/:eventId` (producer eventId)
+- `GET /api/organizations/:organizationId/trace/serials/:serializedItemId`
+- `GET /api/organizations/:organizationId/trace/batches/:batchId`
+- `GET /api/organizations/:organizationId/trace/aggregates/:aggregateId`
+
+Lists return `{items,total,page,pageSize}`. Defaults: page 1, size 25; maximum
+size 100. Timelines order by eventTime, recordTime, then UUID ascending. Filters:
+`eventType`, `action`, `from`, `to` (inclusive ISO timestamps with timezone),
+`serializedItemId`, `batchId`, `aggregateId`, `page`, `pageSize`. Aggregate queries
+include events where that container is parent or child. Membership is checked
+by Gateway; signed read context binds the complete path including query string.
+
+Internal-only `POST /internal/organizations/:organizationId/trace/events` accepts
+`TraceCapture` from the shared contracts. Capture signatures use
+`traceCapturePayload(method,path,timestamp,caller,organizationId,rawBody)` and
+`TRACE_CAPTURE_SECRET`, with headers `x-trace-caller`, `x-identity-organization`,
+`x-identity-time`, `x-identity-signature`. Only serialization-service (OBJECT) and
+aggregation-service (AGGREGATION) callers are recognized; browser identities
+cannot capture and Gateway exposes no capture route. Signature lifetime is 30
+seconds. Configure a distinct capture secret; Serialization's development
+fallback to INTERNAL_IDENTITY_SECRET exists for older environment compatibility.
+
+Duplicate eventIds return the existing event only when normalized payloads match
+(including canonical JSON metadata); conflicting duplicates return 409, including
+concurrent inserts. Event identity is globally unique. No update/delete APIs are
+provided. Database triggers reject UPDATE, DELETE, and TRUNCATE; database owners
+can still deliberately change DDL, so this is not tamper-proof archival storage.
+
+Commission, quarantine, and decommission commands commit serialization state,
+then synchronously capture OBJECT events. Failure returns 503
+`TRACE_CAPTURE_FAILED` with `businessStateChanged: true` and the exact event
+payload through Gateway. Do not repeat the business command: inspect its state
+and have a trusted producer replay that payload with the same eventId/signature.
+Capture may already have succeeded if the response was lost. No automatic replay
+or durable reconciliation queue exists; a process crash between commit and capture
+can lose history. Kafka + transactional outbox is intentionally deferred.
+
+The UI includes Traceability navigation, paginated event lists, UTC date/type
+filters, serial/batch/container timelines, detail metadata, and loading/error/
+empty states. Serial and Batch profiles link to Trace History.
+
+**Repository blocker:** Phase 8 aggregation source, schema/migrations, gateway,
+UI, shared contracts, and tests are absent in this checkout. Only ignored compiled
+JavaScript remains under `services/aggregation-service/dist`, and it references a
+missing generated client. No runnable aggregation package can be built or safely
+integrated. Traceability accepts and tests all four aggregation event shapes,
+but operational aggregation capture and an Aggregate Detail link require the
+original Phase 8 source. There is no historical backfill for preexisting actions.
+Tests retain append-only records under random test organization IDs.
