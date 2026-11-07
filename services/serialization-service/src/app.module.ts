@@ -1,3 +1,4 @@
+import { MessagingModule } from '@pharma/messaging';
 import { TraceCaptureClient } from './trace-capture.client';
 import { BatchValidationClient } from './batch-validation.client';
 import { Module } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { InternalIdentityGuard } from './authorization';
 import { HealthController } from './health.controller';
 @Module({
   imports: [
+    MessagingModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateSerializationEnvironment,

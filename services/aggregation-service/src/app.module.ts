@@ -1,3 +1,4 @@
+import { MessagingModule } from '@pharma/messaging';
 import { SerialValidationClient } from './serial-validation.client';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -11,6 +12,7 @@ import { InternalIdentityGuard } from './authorization';
 import { HealthController } from './health.controller';
 @Module({
   imports: [
+    MessagingModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateAggregationEnvironment,

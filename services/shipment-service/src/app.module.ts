@@ -1,3 +1,4 @@
+import { MessagingModule } from '@pharma/messaging';
 import { ReferenceClient } from './reference.client';
 import { TraceCaptureClient } from './trace-capture.client';
 import { Module } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { InternalIdentityGuard } from './authorization';
 import { HealthController } from './health.controller';
 @Module({
   imports: [
+    MessagingModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateShipmentEnvironment,

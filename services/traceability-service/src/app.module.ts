@@ -1,3 +1,5 @@
+import { TraceConsumer } from './trace-consumer';
+import { MessagingModule } from '@pharma/messaging';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validateTraceabilityEnvironment } from '@pharma/config';
@@ -10,6 +12,7 @@ import { TraceController, CaptureController } from './trace.controller';
 import { TraceGuard } from './trace.guard';
 @Module({
   imports: [
+    MessagingModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateTraceabilityEnvironment,
@@ -25,6 +28,6 @@ import { TraceGuard } from './trace.guard';
     }),
   ],
   controllers: [HealthController, TraceController, CaptureController],
-  providers: [PrismaService, TraceService, TraceGuard],
+  providers: [TraceConsumer, PrismaService, TraceService, TraceGuard],
 })
 export class AppModule {}
