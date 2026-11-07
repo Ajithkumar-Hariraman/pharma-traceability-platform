@@ -1,3 +1,5 @@
+import { ShipmentController } from './shipments/shipment.controller';
+import { ShipmentProxy } from './shipments/shipment-proxy';
 import { TraceController } from './trace/trace.controller';
 import { TraceProxy } from './trace/trace-proxy';
 import { AggregationController } from './aggregation/aggregation.controller';
@@ -53,6 +55,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     SerializationController,
     TraceController,
     AggregationController,
+    ShipmentController,
   ],
   providers: [
     AuthHealthService,
@@ -63,6 +66,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     SerializationProxy,
     TraceProxy,
     AggregationProxy,
+    ShipmentProxy,
     GatewayIdentityGuard,
   ],
 })

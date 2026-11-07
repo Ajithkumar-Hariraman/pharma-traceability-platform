@@ -59,6 +59,8 @@ export interface AuthEnvironment extends AppEnvironment {
 export interface GatewayEnvironment extends AppEnvironment {
   AUTH_SERVICE_URL: string;
   AUTH_SERVICE_TIMEOUT_MS: number;
+  SHIPMENT_SERVICE_URL?: string;
+  SHIPMENT_SERVICE_TIMEOUT_MS?: number;
   AGGREGATION_SERVICE_URL?: string;
   SERIALIZATION_SERVICE_URL?: string;
   TRACEABILITY_SERVICE_URL?: string;
@@ -147,6 +149,23 @@ export function validateGatewayEnvironment(
             'TRACEABILITY_SERVICE_URL',
           ),
         }
+      : {}),
+    ...(input.SHIPMENT_SERVICE_URL !== undefined
+      ? (() => {
+          if (!input.ORGANIZATION_SERVICE_URL)
+            throw new Error(
+              'ORGANIZATION_SERVICE_URL is required for Shipment',
+            );
+          return {
+            SHIPMENT_SERVICE_URL: validateServiceUrl(
+              input.SHIPMENT_SERVICE_URL,
+              'SHIPMENT_SERVICE_URL',
+            ),
+            SHIPMENT_SERVICE_TIMEOUT_MS: validateShipmentTimeout(
+              input.SHIPMENT_SERVICE_TIMEOUT_MS,
+            ),
+          };
+        })()
       : {}),
     ...(input.AGGREGATION_SERVICE_URL !== undefined
       ? (() => {
@@ -395,4 +414,51 @@ export function validateAggregationEnvironment(
     ),
     SERIALIZATION_SERVICE_TIMEOUT_MS: Number(raw),
   };
+}
+
+export interface ShipmentEnvironment extends OrganizationEnvironment {
+  ORGANIZATION_SERVICE_URL: string;
+  SERIALIZATION_SERVICE_URL: string;
+  AGGREGATION_SERVICE_URL: string;
+  TRACEABILITY_SERVICE_URL: string;
+  TRACE_CAPTURE_SECRET: string;
+  REFERENCE_TIMEOUT_MS: number;
+}
+export function validateShipmentEnvironment(
+  input: Record<string, unknown>,
+): ShipmentEnvironment {
+  const timeout = Number(input.REFERENCE_TIMEOUT_MS ?? 2000);
+  if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30000)
+    throw new Error('Invalid REFERENCE_TIMEOUT_MS');
+  return {
+    ...validateOrganizationEnvironment(input),
+    ...validateEnvironment(input, 3008),
+    ORGANIZATION_SERVICE_URL: validateServiceUrl(
+      input.ORGANIZATION_SERVICE_URL,
+      'ORGANIZATION_SERVICE_URL',
+    ),
+    SERIALIZATION_SERVICE_URL: validateServiceUrl(
+      input.SERIALIZATION_SERVICE_URL,
+      'SERIALIZATION_SERVICE_URL',
+    ),
+    AGGREGATION_SERVICE_URL: validateServiceUrl(
+      input.AGGREGATION_SERVICE_URL,
+      'AGGREGATION_SERVICE_URL',
+    ),
+    TRACEABILITY_SERVICE_URL: validateServiceUrl(
+      input.TRACEABILITY_SERVICE_URL,
+      'TRACEABILITY_SERVICE_URL',
+    ),
+    TRACE_CAPTURE_SECRET: validateInternalSecret(
+      input.TRACE_CAPTURE_SECRET ?? input.INTERNAL_IDENTITY_SECRET,
+    ),
+    REFERENCE_TIMEOUT_MS: timeout,
+  };
+}
+
+function validateShipmentTimeout(value: unknown): number {
+  const timeout = Number(value ?? 30000);
+  if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30000)
+    throw new Error('Invalid SHIPMENT_SERVICE_TIMEOUT_MS');
+  return timeout;
 }

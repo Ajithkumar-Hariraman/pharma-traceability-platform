@@ -1,0 +1,46 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum ShipmentStatus {
+ CREATED
+ READY
+ DISPATCHED
+ IN_TRANSIT
+ RECEIVED
+ CANCELLED
+}
+model Shipment {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ shipmentNumber String @db.VarChar(100)
+ sourceFacilityId String @db.Uuid
+ destinationFacilityId String @db.Uuid
+ status ShipmentStatus @default(CREATED)
+ dispatchedAt DateTime? @db.Timestamptz(3)
+ receivedAt DateTime? @db.Timestamptz(3)
+ cancelledAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ contents ShipmentContent[]
+ @@unique([organizationId, shipmentNumber])
+ @@unique([organizationId, id])
+ @@index([organizationId, status, createdAt])
+ @@index([organizationId, sourceFacilityId])
+ @@index([organizationId, destinationFacilityId])
+}
+model ShipmentContent {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ shipmentId String @db.Uuid
+ kind String @db.VarChar(10)
+ referenceId String @db.Uuid
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ shipment Shipment @relation(fields: [organizationId, shipmentId], references: [organizationId, id], onDelete: Restrict)
+ @@unique([shipmentId, kind, referenceId])
+ @@index([organizationId, kind, referenceId])
+}

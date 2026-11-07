@@ -44,7 +44,8 @@ export class TraceGuard implements CanActivate {
       const caller = h['x-trace-caller'];
       if (
         caller !== 'serialization-service' &&
-        caller !== 'aggregation-service'
+        caller !== 'aggregation-service' &&
+        caller !== 'shipment-service'
       )
         throw new UnauthorizedException('Untrusted capture caller');
       r.caller = caller;
