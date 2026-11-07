@@ -338,7 +338,8 @@ export function validateBatchEnvironment(
   };
 }
 
-export interface SerializationEnvironment extends OrganizationEnvironment {
+export interface SerializationEnvironment
+  extends OrganizationEnvironment, KafkaEnvironment {
   TRACEABILITY_SERVICE_URL: string;
   TRACE_CAPTURE_SECRET: string;
   BATCH_SERVICE_URL: string;
@@ -360,6 +361,7 @@ export function validateSerializationEnvironment(
   return {
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3005),
+    ...validateKafkaEnvironment(input),
     BATCH_SERVICE_URL: validateServiceUrl(
       input.BATCH_SERVICE_URL,
       'BATCH_SERVICE_URL',
@@ -375,20 +377,23 @@ export function validateSerializationEnvironment(
   };
 }
 
-export type TraceabilityEnvironment = OrganizationEnvironment & {
-  TRACE_CAPTURE_SECRET: string;
-};
+export type TraceabilityEnvironment = OrganizationEnvironment &
+  KafkaEnvironment & {
+    TRACE_CAPTURE_SECRET: string;
+  };
 export function validateTraceabilityEnvironment(
   input: Record<string, unknown>,
 ): TraceabilityEnvironment {
   return {
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3007),
+    ...validateKafkaEnvironment(input),
     TRACE_CAPTURE_SECRET: validateInternalSecret(input.TRACE_CAPTURE_SECRET),
   };
 }
 
-export interface AggregationEnvironment extends OrganizationEnvironment {
+export interface AggregationEnvironment
+  extends OrganizationEnvironment, KafkaEnvironment {
   SERIALIZATION_SERVICE_URL: string;
   SERIALIZATION_SERVICE_TIMEOUT_MS: number;
 }
@@ -408,6 +413,7 @@ export function validateAggregationEnvironment(
   return {
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3006),
+    ...validateKafkaEnvironment(input),
     SERIALIZATION_SERVICE_URL: validateServiceUrl(
       input.SERIALIZATION_SERVICE_URL,
       'SERIALIZATION_SERVICE_URL',
@@ -416,7 +422,8 @@ export function validateAggregationEnvironment(
   };
 }
 
-export interface ShipmentEnvironment extends OrganizationEnvironment {
+export interface ShipmentEnvironment
+  extends OrganizationEnvironment, KafkaEnvironment {
   ORGANIZATION_SERVICE_URL: string;
   SERIALIZATION_SERVICE_URL: string;
   AGGREGATION_SERVICE_URL: string;
@@ -433,6 +440,7 @@ export function validateShipmentEnvironment(
   return {
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3008),
+    ...validateKafkaEnvironment(input),
     ORGANIZATION_SERVICE_URL: validateServiceUrl(
       input.ORGANIZATION_SERVICE_URL,
       'ORGANIZATION_SERVICE_URL',
@@ -462,3 +470,76 @@ function validateShipmentTimeout(value: unknown): number {
     throw new Error('Invalid SHIPMENT_SERVICE_TIMEOUT_MS');
   return timeout;
 }
+
+export function validateKafkaEnvironment(input: Record<string, unknown>) {
+  const mode = input.EVENT_TRANSPORT ?? 'http';
+  if (mode !== 'http' && mode !== 'kafka')
+    throw new Error('Invalid EVENT_TRANSPORT');
+  const brokers = String(input.KAFKA_BROKERS ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+  if (
+    (mode === 'kafka' && !brokers.length) ||
+    brokers.some(
+      (v) =>
+        !/^[a-zA-Z0-9.-]+:\d+$/.test(v) ||
+        Number(v.split(':')[1]) < 1 ||
+        Number(v.split(':')[1]) > 65535,
+    )
+  )
+    throw new Error('Invalid KAFKA_BROKERS');
+  const identifier = (key: string, fallback: string) => {
+    const value = input[key] ?? fallback;
+    if (typeof value !== 'string' || !/^[a-zA-Z0-9._-]{1,200}$/.test(value))
+      throw new Error(`Invalid ${key}`);
+    return value;
+  };
+  const timeout = (key: string, fallback: number) => {
+    const value = input[key] ?? fallback;
+    if (
+      !/^\d+$/.test(String(value)) ||
+      Number(value) < 1 ||
+      Number(value) > 60000
+    )
+      throw new Error(`Invalid ${key}`);
+    return Number(value);
+  };
+  if (
+    input.KAFKA_SSL !== undefined &&
+    !['true', 'false'].includes(String(input.KAFKA_SSL))
+  )
+    throw new Error('Invalid KAFKA_SSL');
+  const mechanism = input.KAFKA_SASL_MECHANISM;
+  if (
+    mechanism !== undefined &&
+    !['plain', 'scram-sha-256', 'scram-sha-512'].includes(String(mechanism))
+  )
+    throw new Error('Invalid KAFKA_SASL_MECHANISM');
+  if (
+    mechanism &&
+    (typeof input.KAFKA_SASL_USERNAME !== 'string' ||
+      !input.KAFKA_SASL_USERNAME ||
+      typeof input.KAFKA_SASL_PASSWORD !== 'string' ||
+      !input.KAFKA_SASL_PASSWORD ||
+      String(input.KAFKA_SSL) !== 'true')
+  )
+    throw new Error('Kafka SASL requires credentials and TLS');
+  return {
+    EVENT_TRANSPORT: mode,
+    KAFKA_BROKERS: brokers.join(','),
+    KAFKA_CLIENT_ID: identifier('KAFKA_CLIENT_ID', 'pharma'),
+    KAFKA_CONSUMER_GROUP_ID: identifier(
+      'KAFKA_CONSUMER_GROUP_ID',
+      'traceability-v1',
+    ),
+    KAFKA_CONNECTION_TIMEOUT_MS: timeout('KAFKA_CONNECTION_TIMEOUT_MS', 3000),
+    KAFKA_REQUEST_TIMEOUT_MS: timeout('KAFKA_REQUEST_TIMEOUT_MS', 10000),
+    KAFKA_SSL: String(input.KAFKA_SSL) === 'true',
+    KAFKA_SASL_MECHANISM: mechanism,
+    KAFKA_SASL_USERNAME: input.KAFKA_SASL_USERNAME,
+    KAFKA_SASL_PASSWORD: input.KAFKA_SASL_PASSWORD,
+  };
+}
+
+export type KafkaEnvironment = ReturnType<typeof validateKafkaEnvironment>;

@@ -1,5 +1,7 @@
+import { Messaging, aggregationEvent } from '@pharma/messaging';
 import {
   Injectable,
+  Optional,
   BadRequestException,
   ConflictException,
   NotFoundException,
@@ -25,6 +27,7 @@ export class AggregationService {
   constructor(
     private readonly db: PrismaService,
     private readonly serials: SerialValidationClient,
+    @Optional() private readonly messaging?: Messaging,
   ) {}
   async create(organizationId: string, body: unknown) {
     const input = createSchema.safeParse(body);
@@ -130,7 +133,7 @@ export class AggregationService {
       throw new ConflictException('Serialized item must be COMMISSIONED');
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await this.db.$transaction(
+        const result = await this.db.$transaction(
           async (tx) => {
             // Serialize packaging mutations per tenant, including removal and parent status checks.
             await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${organizationId}, 8))::text`;
@@ -196,6 +199,11 @@ export class AggregationService {
           },
           { isolationLevel: 'Serializable' },
         );
+        if (this.messaging?.enabled)
+          await this.messaging.publish(
+            aggregationEvent(organizationId, parentId, childId, type, remove),
+          );
+        return result;
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
           if (error.code === 'P2034') {

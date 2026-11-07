@@ -219,3 +219,123 @@ integrated. Traceability accepts and tests all four aggregation event shapes,
 but operational aggregation capture and an Aggregate Detail link require the
 original Phase 8 source. There is no historical backfill for preexisting actions.
 Tests retain append-only records under random test organization IDs.
+
+## Phase 11 — Kafka domain events
+
+`pnpm infra:up` starts the existing PostgreSQL instance, an Apache Kafka 3.9.1
+KRaft broker, and a one-shot topic initializer. Kafka has a persistent named
+volume and separate internal (`kafka:29092`) and host (`localhost:9092`)
+listeners. Host access is bound to loopback. The broker and topic use replication
+factor 1 and minimum ISR 1 **for local development only**. Automatic topic creation
+is disabled. The initializer creates `pharma.domain-events.v1` with six partitions
+and seven days of retention. Check initialization with
+`docker compose --env-file infrastructure/docker/.env -f infrastructure/docker/compose.yaml logs kafka-init`.
+
+`@pharma/messaging` owns KafkaJS configuration, lifecycle, publishing, consumption,
+boundary validation, domain-to-trace mapping, readiness, and structured logs.
+Operational services retain ownership of their databases and reference validation.
+Traceability owns its append-only event projection. No new database tables or
+outbox/inbox are introduced.
+
+The version 1 JSON envelope has `eventId`, `eventType`, `eventVersion: 1`,
+`organizationId`, `aggregateType`, `aggregateId`, `occurredAt` (ISO 8601),
+`producer`, optional `correlationId`, and `payload`. Correlation IDs are copied
+when available in capture metadata. Payloads contain domain identities and facts,
+not Prisma records or database mutation instructions. Supported names are:
+
+| Producer      | Event types                                                                                                                                | Aggregate          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| Serialization | `serialization.commissioned`, `serialization.quarantined`, `serialization.decommissioned`                                                  | `serialized-item`  |
+| Aggregation   | `aggregation.item-aggregated`, `aggregation.item-disaggregated`, `aggregation.container-aggregated`, `aggregation.container-disaggregated` | parent `container` |
+| Shipment      | `shipment.dispatched`, `shipment.received`                                                                                                 | `shipment`         |
+
+Messages are keyed by `organizationId:aggregateType:aggregateId`, preserving Kafka
+partition ordering for each aggregate. Concurrent requests can publish in a
+different order than their DB commits; consumers retain business occurrence times.
+The schema checks producer/type ownership and aggregate/payload relationships,
+rejects unknown envelope/payload fields and versions, and requires trusted serial
+relationships for object events. Tenant identity comes exclusively from the
+validated envelope; payloads cannot override it. Broker access is a trust boundary:
+only trusted service principals should publish. Self-declared producer and tenant
+fields do not authenticate a Kafka principal. Enforce broker ACLs and network
+access controls when moving to a managed broker.
+
+### Controlled migration
+
+Existing `.env` files continue to use HTTP because `EVENT_TRANSPORT` defaults to
+`http`. HTTP capture endpoints, signing and failure responses remain intact.
+Aggregation previously had no automatic Traceability capture; in HTTP mode it
+continues its existing behavior. To enable asynchronous capture:
+
+1. Start infrastructure and confirm the topic initializer succeeds.
+2. Set `EVENT_TRANSPORT=kafka` and `KAFKA_BROKERS=localhost:9092` in Traceability's
+   environment and restart it. Set a stable `KAFKA_CONSUMER_GROUP_ID=traceability-v1`.
+3. Set the same transport and brokers on the operational services, with a distinct
+   `KAFKA_CLIENT_ID` per service (examples are in each `.env.example`), and restart.
+4. Monitor `/ready`, publish/capture error logs and consumer lag. Stop or drain
+   operational writers before changing their transport. Do not dual-publish
+   lifecycle commands or retry a committed command to repair missing traces.
+
+Traceability can consume Kafka and accept existing HTTP captures concurrently.
+Switching an operational service back to `http` preserves its proven path; leave
+Traceability consumption enabled until Kafka backlog has drained. Aggregation
+requires Kafka for its newly added automatic events. There is no automatic HTTP
+fallback on Kafka failure, so failed publishes remain visible and event IDs do
+not change between transport retries.
+
+`KAFKA_BROKERS` is required in Kafka mode; there are no default production brokers.
+`KAFKA_CLIENT_ID`, `KAFKA_CONSUMER_GROUP_ID`, `KAFKA_CONNECTION_TIMEOUT_MS` (3000)
+and `KAFKA_REQUEST_TIMEOUT_MS` (10000) are validated centrally. Kafka mode startup
+fails if required connections cannot be established. `/health` is liveness;
+`/ready` checks PostgreSQL and Kafka topic metadata, and Traceability additionally
+requires an active consumer. Kafka outages do not roll back or delete business
+state. Publish failures return `EVENT_PUBLISH_FAILED`, `businessStateChanged: true`
+and the original validated event for reconciliation. Do not repeat the business
+command. Readiness can recover after broker connectivity returns.
+
+For a later MSK move, configure broker addresses, `KAFKA_SSL=true` and optionally
+`KAFKA_SASL_MECHANISM` (`plain`, `scram-sha-256`, `scram-sha-512`),
+`KAFKA_SASL_USERNAME` and `KAFKA_SASL_PASSWORD` through secret configuration.
+SASL requires TLS. The same Kafka protocol is used; IAM authentication is not
+implemented in this phase. Provision managed topics separately with appropriate
+replication/ISR, retention and ACLs. No MSK/AWS deployment is included.
+
+### Delivery and failure behavior
+
+Producers use all-replica acknowledgement, idempotent Kafka production, one
+in-flight request and bounded retries (five retries with backoff). This is not an
+exactly-once guarantee across process restarts. Traceability validates again and
+maps domain facts into existing OBJECT, AGGREGATION or TRANSACTION captures.
+Existing globally unique `eventId` and canonical content checks make identical
+replays idempotent and reject conflicting or cross-organization reuse. Existing
+organization-scoped reads remain unchanged.
+
+Malformed messages and permanent capture validation/conflict errors are logged
+with topic, partition and offset and then skipped, allowing subsequent records to
+continue. They remain in Kafka until retention expires; there is no DLQ or inbox.
+Operational reconciliation must inspect those logs and original records. Transient
+capture failures retry the same message, heartbeat while waiting, and keep that
+offset unacknowledged until persistence succeeds. Readiness fails during this
+retry. Kafka can redeliver after restart or rebalance; existing capture deduplication
+handles that. Shutdown disconnects the consumer and producer.
+
+Run `pnpm build` and `pnpm test:phase11` for focused tests. They require local
+Kafka and the existing migrated PostgreSQL databases. The integration test uses
+a unique consumer group and randomized organizations, covers real Kafka delivery
+and an injected transient database failure, and leaves immutable trace fixtures
+in place as earlier trace tests do. Run `pnpm test` for all phases.
+
+### Phase 12 reliability gap
+
+This phase intentionally still has the producer crash window:
+
+```text
+business DB commit
+→ process crash before Kafka publish
+→ missing event possible
+```
+
+Bounded publish retries cannot repair that gap or guarantee delivery after a
+process dies. An acknowledgement loss may also require replaying the original
+event rather than repeating a lifecycle command. Phase 12 will add a Transactional
+Outbox so committing business state and recording publication intent are atomic.

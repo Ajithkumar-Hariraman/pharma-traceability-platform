@@ -1,0 +1,20 @@
+{
+  "name": "@pharma/messaging",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@pharma/config": "workspace:*",
+    "@pharma/contracts": "workspace:*",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/config": "^4.0.0",
+    "kafkajs": "^2.2.4",
+    "zod": "^4.6.5"
+  }
+}

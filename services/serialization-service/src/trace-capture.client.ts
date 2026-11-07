@@ -1,11 +1,21 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Messaging, fromTrace } from '@pharma/messaging';
+import {
+  Injectable,
+  Optional,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'node:crypto';
 import { traceCapturePayload, type TraceCapture } from '@pharma/contracts';
 @Injectable()
 export class TraceCaptureClient {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    @Optional() private readonly messaging?: Messaging,
+  ) {}
   async capture(event: TraceCapture) {
+    if (this.messaging?.enabled)
+      return this.messaging.publish(fromTrace(event));
     const path = `/internal/organizations/${event.organizationId}/trace/events`;
     const time = String(Date.now());
     const raw = JSON.stringify(event);

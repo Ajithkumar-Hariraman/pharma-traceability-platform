@@ -1,5 +1,59 @@
 name: pharma-traceability-platform
 services:
+  kafka:
+    image: apache/kafka:3.9.1
+    ports:
+      - '127.0.0.1:${KAFKA_PORT:-9092}:9092'
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list',
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+  kafka-init:
+    image: apache/kafka:3.9.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ['/opt/kafka/bin/kafka-topics.sh']
+    command:
+      [
+        '--bootstrap-server',
+        'kafka:29092',
+        '--create',
+        '--if-not-exists',
+        '--topic',
+        'pharma.domain-events.v1',
+        '--partitions',
+        '6',
+        '--replication-factor',
+        '1',
+        '--config',
+        'min.insync.replicas=1',
+        '--config',
+        'retention.ms=604800000',
+      ]
+    restart: 'no'
   postgres:
     image: postgres:17.6-alpine
     environment:
@@ -31,4 +85,5 @@ services:
       retries: 20
     restart: unless-stopped
 volumes:
+  kafka_data:
   auth_postgres_data:

@@ -120,6 +120,27 @@ importers:
         specifier: ^10.0.0
         version: 10.4.0
 
+  packages/messaging:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^11.1.0
+        version: 11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.0
+        version: 4.0.4(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@pharma/config':
+        specifier: workspace:*
+        version: link:../config
+      '@pharma/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      kafkajs:
+        specifier: ^2.2.4
+        version: 2.2.4
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   services/aggregation-service:
     dependencies:
       '@nestjs/common':
@@ -143,6 +164,9 @@ importers:
       '@pharma/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@pharma/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       '@prisma/client':
         specifier: 6.19.0
         version: 6.19.0(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
@@ -394,6 +418,9 @@ importers:
       '@pharma/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@pharma/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       '@prisma/client':
         specifier: 6.19.0
         version: 6.19.0(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
@@ -443,6 +470,9 @@ importers:
       '@pharma/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@pharma/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       '@prisma/client':
         specifier: 6.19.0
         version: 6.19.0(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
@@ -492,6 +522,9 @@ importers:
       '@pharma/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@pharma/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       '@prisma/client':
         specifier: 6.19.0
         version: 6.19.0(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
@@ -1806,6 +1839,10 @@ packages:
 
   jws@4.0.1:
     resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
+
+  kafkajs@2.2.4:
+    resolution: {integrity: sha512-j/YeapB1vfPT2iOIUn/vxdyKEuhuY2PxMBvf5JWux6iSaukAccrMtXEY/Lb7OvavDhOWME589bpLrEdnVHjfjA==}
+    engines: {node: '>=14.0.0'}
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -3612,6 +3649,8 @@ snapshots:
     dependencies:
       jwa: 2.0.1
       safe-buffer: 5.2.1
+
+  kafkajs@2.2.4: {}
 
   keyv@4.5.4:
     dependencies:
