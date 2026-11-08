@@ -219,3 +219,5 @@ identity and policy. Arbitrary callers cannot supply signed authenticated identi
 Run `pnpm test` for the full suite. Phase 14's real Redis test uses the standard Compose
 port 6379 by default; set `PHASE14_REDIS_URL` to use another test Redis URL.
 Tests create randomly named keys and clean them up; they never flush a database.
+
+Phase 15 DynamoDB setup, keys, rebuild, consistency and smoke validation: [PHASE15.md](PHASE15.md).

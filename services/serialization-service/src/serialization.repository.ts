@@ -8,6 +8,13 @@ import type {
 @Injectable()
 export class SerializationRepository {
   constructor(private readonly prisma: PrismaService) {}
+  page(organizationId: string, after?: string) {
+    return this.prisma.serializedItem.findMany({
+      where: { organizationId, ...(after ? { id: { gt: after } } : {}) },
+      orderBy: { id: 'asc' },
+      take: 50,
+    });
+  }
   lookup(organizationId: string, gtinId: string, serialNumber: string) {
     return this.prisma.serializedItem.findFirst({
       where: { organizationId, gtinId, serialNumber },

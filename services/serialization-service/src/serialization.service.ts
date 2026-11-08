@@ -55,6 +55,13 @@ export class SerializationService {
     private readonly batches: BatchValidationClient,
     private readonly trace: TraceCaptureClient,
   ) {}
+  async projectionPage(organizationId: string, after: unknown) {
+    const cursor = z.string().uuid().optional().parse(after);
+    return {
+      organizationId,
+      items: await this.repository.page(organizationId, cursor),
+    };
+  }
   async lookup(organizationId: string, gtinId: string, input: unknown) {
     const { serialNumber } = parse(single, { serialNumber: input });
     const row = await this.repository.lookup(

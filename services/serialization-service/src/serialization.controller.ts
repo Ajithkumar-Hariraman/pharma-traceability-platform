@@ -114,6 +114,12 @@ export class SerializationController {
 @UseGuards(InternalIdentityGuard)
 export class SerialReferenceController {
   constructor(private readonly service: SerializationService) {}
+  @Get('projection-page') page(
+    @Param('organizationId', ParseUUIDPipe) org: string,
+    @Query('after') after: unknown,
+  ) {
+    return this.service.projectionPage(org, after);
+  }
   @Get('identity/:gtinId') lookup(
     @Param('organizationId', ParseUUIDPipe) org: string,
     @Param('gtinId', ParseUUIDPipe) gtinId: string,

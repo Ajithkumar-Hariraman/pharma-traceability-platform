@@ -612,6 +612,7 @@ export function validateRecallEnvironment(input: Record<string, unknown>) {
     ...kafka,
     ...validateOutboxEnvironment(input),
     ...validateRedisEnvironment(input),
+    ...validateDynamoEnvironment(input),
     REFERENCE_TIMEOUT_MS: timeout,
     PRODUCT_SERVICE_URL: validateServiceUrl(
       input.PRODUCT_SERVICE_URL,
@@ -672,5 +673,41 @@ export function validateRedisEnvironment(input: Record<string, unknown>) {
       60,
       3600,
     ),
+  };
+}
+
+export function validateDynamoEnvironment(input: Record<string, unknown>) {
+  const table = String(input.DYNAMODB_TABLE ?? 'pharma-verification');
+  const region = String(input.AWS_REGION ?? 'us-east-1');
+  const endpoint = input.DYNAMODB_ENDPOINT
+    ? String(input.DYNAMODB_ENDPOINT)
+    : undefined;
+  if (!/^[A-Za-z0-9_.-]{3,255}$/.test(table))
+    throw new Error('Invalid DYNAMODB_TABLE');
+  if (!/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(region))
+    throw new Error('Invalid AWS_REGION');
+  if (endpoint) {
+    const url = new URL(endpoint);
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      throw new Error('Invalid DYNAMODB_ENDPOINT');
+  }
+  const enabled = input.VERIFICATION_PROJECTION_ENABLED ?? 'false';
+  if (![true, false, 'true', 'false'].includes(enabled as string))
+    throw new Error('Invalid VERIFICATION_PROJECTION_ENABLED');
+  const timeout = Number(input.DYNAMODB_TIMEOUT_MS ?? 1000);
+  if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30000)
+    throw new Error('Invalid DYNAMODB_TIMEOUT_MS');
+  return {
+    DYNAMODB_TABLE: table,
+    AWS_REGION: region,
+    DYNAMODB_ENDPOINT: endpoint,
+    DYNAMODB_TIMEOUT_MS: timeout,
+    VERIFICATION_PROJECTION_ENABLED: enabled === true || enabled === 'true',
   };
 }
