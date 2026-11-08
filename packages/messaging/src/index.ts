@@ -418,11 +418,19 @@ export class Messaging {
       eachMessage: async ({ message, partition, topic, heartbeat }) => {
         while (!this.stopping) {
           try {
-            await this.handle(message.value?.toString(), handler, {
-              topic,
-              partition,
-              offset: message.offset,
-            });
+            // Projection fan-out can exceed a Kafka session; keep the lease alive.
+            const pulse = setInterval(() => {
+              void heartbeat().catch(() => undefined);
+            }, 1000);
+            try {
+              await this.handle(message.value?.toString(), handler, {
+                topic,
+                partition,
+                offset: message.offset,
+              });
+            } finally {
+              clearInterval(pulse);
+            }
             this.consuming = true;
             return;
           } catch {

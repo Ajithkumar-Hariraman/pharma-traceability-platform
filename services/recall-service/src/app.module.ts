@@ -1,8 +1,8 @@
+import { VerificationInvalidationConsumer } from './verification-consumer';
+import { DynamoStore } from '@pharma/dynamodb';
+import { VerificationProjection } from './verification-projection';
 import { RedisModule } from '@pharma/redis';
-import {
-  VerificationCache,
-  VerificationInvalidationConsumer,
-} from './verification-cache';
+import { VerificationCache } from './verification-cache';
 import { MessagingModule } from '@pharma/messaging';
 import { ReferenceClient } from './reference.client';
 import { VerificationService } from './verification.service';
@@ -40,6 +40,8 @@ import { HealthController } from './health.controller';
     RecallService,
     ReferenceClient,
     VerificationService,
+    DynamoStore,
+    VerificationProjection,
     VerificationCache,
     VerificationInvalidationConsumer,
     InternalIdentityGuard,

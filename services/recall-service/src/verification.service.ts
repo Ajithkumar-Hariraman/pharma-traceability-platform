@@ -1,4 +1,6 @@
-import { VerificationCache } from './verification-cache';
+import { VerificationProjection } from './verification-projection';
+import type { DomainEvent } from '@pharma/messaging';
+import { VerificationCache } from './verification-cache.store';
 import {
   Injectable,
   NotFoundException,
@@ -49,6 +51,7 @@ export class VerificationService {
     private readonly db: PrismaService,
     private readonly refs: ReferenceClient,
     @Optional() private readonly cache?: VerificationCache,
+    @Optional() private readonly projection?: VerificationProjection,
   ) {}
   async verify(identity: Identity, body: unknown): Promise<VerificationResult> {
     const input = parse(verificationSchema, body);
@@ -74,7 +77,26 @@ export class VerificationService {
       this.cache?.degraded(identity.organizationId);
       key = undefined;
     }
-    const result = await this.authoritative(identity, input);
+    let projected: VerificationResult | undefined;
+    try {
+      projected = await this.projection?.read(
+        identity,
+        input.gtin,
+        input.serialNumber,
+      );
+    } catch {
+      this.logger.warn({
+        message: 'Verification projection unavailable',
+        fallbackUsed: true,
+      });
+    }
+    const result = projected ?? (await this.authoritative(identity, input));
+    this.logger.log({
+      message: 'Verification read path',
+      projectionHit: !!projected,
+      projectionMiss: !projected,
+      fallbackUsed: !projected,
+    });
     if (key) {
       try {
         await this.cache?.write(key, result);
@@ -84,11 +106,21 @@ export class VerificationService {
     }
     return result;
   }
-  private async authoritative(
+  async authoritative(
     identity: Identity,
     input: { gtin: string; serialNumber: string },
+    event?: DomainEvent,
+    strict = false,
   ): Promise<VerificationResult> {
-    const base = { ...input, verifiedAt: new Date().toISOString() };
+    const revision = Date.now();
+    let generation: string | undefined;
+    try {
+      if (this.projection?.enabled)
+        generation = await this.projection.generation(identity.organizationId);
+    } catch (error) {
+      if (event || strict) throw error;
+    }
+    const base = { ...input, verifiedAt: new Date(revision).toISOString() };
     const prefix = `/organizations/${identity.organizationId}`;
     let gtin, serial;
     try {
@@ -189,7 +221,7 @@ export class VerificationService {
       organizationId: identity.organizationId,
       result,
     });
-    return {
+    const response: VerificationResult = {
       ...base,
       result,
       explanation,
@@ -207,5 +239,39 @@ export class VerificationService {
           }
         : {}),
     };
+    if (generation && this.projection) {
+      try {
+        await this.projection.write(
+          identity,
+          {
+            serializedItemId: serial.id,
+            productId: serial.productId,
+            batchId: serial.batchId,
+            serializationStatus: serial.status,
+            gtinId: serial.gtinId,
+            productName: gtin.product.name,
+            lotNumber: batch.lotNumber,
+            expiryDate: batch.expiryDate,
+            productStatus: gtin.product.status,
+            gtinStatus: gtin.status,
+            batchStatus: batch.status,
+            activeRecall: !!recall,
+            recallId: recall?.id,
+            verificationStatus: response.result,
+          },
+          response,
+          revision,
+          generation,
+          event,
+        );
+      } catch (error) {
+        this.logger.warn({
+          message: 'Verification projection repair failed',
+          fallbackUsed: true,
+        });
+        if (event || strict) throw error;
+      }
+    }
+    return response;
   }
 }
