@@ -234,8 +234,7 @@ and seven days of retention. Check initialization with
 `@pharma/messaging` owns KafkaJS configuration, lifecycle, publishing, consumption,
 boundary validation, domain-to-trace mapping, readiness, and structured logs.
 Operational services retain ownership of their databases and reference validation.
-Traceability owns its append-only event projection. No new database tables or
-outbox/inbox are introduced.
+Traceability owns its append-only event projection. Phase 12 adds service-owned outbox tables and a Traceability processing ledger, described below.
 
 The version 1 JSON envelope has `eventId`, `eventType`, `eventVersion: 1`,
 `organizationId`, `aggregateType`, `aggregateId`, `occurredAt` (ISO 8601),
@@ -267,7 +266,7 @@ Existing `.env` files continue to use HTTP because `EVENT_TRANSPORT` defaults to
 Aggregation previously had no automatic Traceability capture; in HTTP mode it
 continues its existing behavior. To enable asynchronous capture:
 
-1. Start infrastructure and confirm the topic initializer succeeds.
+1. Start infrastructure, confirm the topic initializer succeeds, and apply all four Phase 12 migrations before starting updated services.
 2. Set `EVENT_TRANSPORT=kafka` and `KAFKA_BROKERS=localhost:9092` in Traceability's
    environment and restart it. Set a stable `KAFKA_CONSUMER_GROUP_ID=traceability-v1`.
 3. Set the same transport and brokers on the operational services, with a distinct
@@ -278,20 +277,20 @@ continues its existing behavior. To enable asynchronous capture:
 
 Traceability can consume Kafka and accept existing HTTP captures concurrently.
 Switching an operational service back to `http` preserves its proven path; leave
-Traceability consumption enabled until Kafka backlog has drained. Aggregation
+Traceability consumption enabled until Kafka backlog has drained. Before switching to HTTP, drain all operational outboxes while Kafka mode is still enabled; HTTP mode does not run the publisher. Aggregation
 requires Kafka for its newly added automatic events. There is no automatic HTTP
 fallback on Kafka failure, so failed publishes remain visible and event IDs do
 not change between transport retries.
 
 `KAFKA_BROKERS` is required in Kafka mode; there are no default production brokers.
 `KAFKA_CLIENT_ID`, `KAFKA_CONSUMER_GROUP_ID`, `KAFKA_CONNECTION_TIMEOUT_MS` (3000)
-and `KAFKA_REQUEST_TIMEOUT_MS` (10000) are validated centrally. Kafka mode startup
-fails if required connections cannot be established. `/health` is liveness;
-`/ready` checks PostgreSQL and Kafka topic metadata, and Traceability additionally
-requires an active consumer. Kafka outages do not roll back or delete business
-state. Publish failures return `EVENT_PUBLISH_FAILED`, `businessStateChanged: true`
-and the original validated event for reconciliation. Do not repeat the business
-command. Readiness can recover after broker connectivity returns.
+and `KAFKA_REQUEST_TIMEOUT_MS` (10000) are validated centrally. Traceability requires
+Kafka at startup and checks Kafka plus consumer activity in `/ready`. Operational
+services in Kafka mode can start while Kafka is unavailable: `/ready` checks their
+PostgreSQL connection and running outbox worker with a successful storage poll, and reports worker status.
+`/health` remains liveness. Kafka outages and pending retries do not fail business
+commands or operational readiness once the business/outbox transaction commits.
+Monitor outbox depth, oldest pending age, terminal failures and consumer lag.
 
 For a later MSK move, configure broker addresses, `KAFKA_SSL=true` and optionally
 `KAFKA_SASL_MECHANISM` (`plain`, `scram-sha-256`, `scram-sha-512`),
@@ -312,7 +311,7 @@ organization-scoped reads remain unchanged.
 
 Malformed messages and permanent capture validation/conflict errors are logged
 with topic, partition and offset and then skipped, allowing subsequent records to
-continue. They remain in Kafka until retention expires; there is no DLQ or inbox.
+continue. They remain in Kafka until retention expires; there is no DLQ; successful processing is durably recorded in Traceability.
 Operational reconciliation must inspect those logs and original records. Transient
 capture failures retry the same message, heartbeat while waiting, and keep that
 offset unacknowledged until persistence succeeds. Readiness fails during this
@@ -325,17 +324,152 @@ a unique consumer group and randomized organizations, covers real Kafka delivery
 and an injected transient database failure, and leaves immutable trace fixtures
 in place as earlier trace tests do. Run `pnpm test` for all phases.
 
-### Phase 12 reliability gap
+## Phase 12 — Transactional Outbox and durable consumption
 
-This phase intentionally still has the producer crash window:
+Kafka mode now commits each business mutation and its original versioned domain
+envelope to the **same service-owned PostgreSQL transaction**. Serialization,
+Aggregation, and Shipment each own an `OutboxEvent` table. No cross-service
+foreign keys or distributed transactions are used. An insertion/commit failure
+rolls back both business state and publication intent. No Kafka I/O occurs inside
+those transactions, and API commands do not wait for publishing. HTTP mode keeps
+the earlier signed synchronous capture behavior and never enqueues the same event.
+Direct Kafka capture through the HTTP capture client is rejected; all operational
+Kafka events must be enqueued transactionally.
 
-```text
-business DB commit
-→ process crash before Kafka publish
-→ missing event possible
+### Schema and delivery semantics
+
+Each outbox stores unique `eventId`, version/type, organization and aggregate
+identities, the complete Phase 11 envelope JSON, `status`, `attempts`,
+`availableAt`, `claimToken`, `publishedAt`, `lastError`, and timestamps. Indexed
+eligibility and retention fields support bounded polling/cleanup. Statuses are
+`PENDING`, `PUBLISHING`, `PUBLISHED`, and terminal `FAILED`.
+
+Delivery is **at least once**, not exactly once. The former producer crash window
+is closed for Kafka mode: after the database commits, publication intent survives
+a process crash or Kafka outage. A successful Kafka publish followed by a crash
+before the `PUBLISHED` update can still deliver the same `eventId` again. Duplicate
+delivery is expected and safe at the Traceability boundary. PostgreSQL durability,
+available storage, eventual recovery of dependencies and operational handling of
+exhausted retries remain necessary. HTTP mode still has its historical post-commit
+capture gap; it is a compatibility mode, not an outbox-backed transport.
+
+### Publisher, concurrency and shutdown
+
+`@pharma/messaging` shares enqueue, PostgreSQL claiming, retry, publishing and
+cleanup behavior. Each operational Prisma lifecycle starts its worker after
+application bootstrap and finishes its in-flight send, releases unstarted claims without consuming their retry budgets, and stops before disconnecting its
+service database on shutdown. Kafka connection failures at producer startup are
+logged and retried on later publications. Traceability startup remains strict.
+
+Each poll atomically claims a bounded batch with `FOR UPDATE SKIP LOCKED`,
+increments attempts, and commits a lease and random claim token. Network I/O runs
+outside the claim transaction. A heartbeat renews the entire claimed batch while
+it publishes. Multiple replicas claim disjoint available rows. Crashed workers'
+expired leases can be reclaimed; updates include the claim token so a stale
+worker cannot mark or reschedule a newer owner's claim. Network/lease uncertainty
+can still produce duplicates, consistent with at-least-once semantics. This phase
+does not guarantee strict business commit order across workers or aggregates;
+Traceability retains event occurrence times.
+
+Acknowledged events become `PUBLISHED`. Failures persist a fixed, sanitized error
+code, retry count and next availability using capped exponential backoff. The
+publisher does not log payloads or broker exception text. Logs include event,
+organization, aggregate, service, attempt and outcome. Each batch failure/poll is
+followed by the configured polling delay; there is no tight retry loop.
+After the configured attempt limit, `FAILED` rows stay durable for investigation
+and explicit requeue. An expired final lease also becomes `FAILED` because its
+publication outcome is uncertain. Do not repeat business commands to repair
+publication.
+
+The worker exposes running/last-poll status through operational `/ready`.
+An individual retry or exhausted event does not make the whole service unhealthy.
+Worker storage failures are logged separately; database connectivity and publisher storage availability are part of
+readiness. Alerts should use outbox status counts and age, rather than process
+liveness alone. For example, query the service-owned database:
+
+```sql
+SELECT status, count(*), min("createdAt") AS oldest
+FROM "OutboxEvent" GROUP BY status;
 ```
 
-Bounded publish retries cannot repair that gap or guarantee delivery after a
-process dies. An acknowledgement loss may also require replaying the original
-event rather than repeating a lifecycle command. Phase 12 will add a Transactional
-Outbox so committing business state and recording publication intent are atomic.
+After resolving the cause, operators can requeue a bounded, organization-scoped
+batch of failed events without changing event IDs or stored envelopes:
+
+```sql
+WITH retry AS (
+  SELECT id FROM "OutboxEvent"
+  WHERE status = 'FAILED' AND "organizationId" = '<organization-uuid>'::uuid
+  ORDER BY "createdAt", id LIMIT 100 FOR UPDATE SKIP LOCKED
+)
+UPDATE "OutboxEvent" o
+SET status = 'PENDING', attempts = 0, "availableAt" = now(),
+    "claimToken" = NULL, "lastError" = NULL, "updatedAt" = now()
+FROM retry WHERE o.id = retry.id;
+```
+
+Stop/drain operational writers before transport changes. If Kafka is unavailable,
+leave durable outboxes in place and restore publishing before switching to HTTP.
+No automatic dual-publication or fallback is enabled.
+
+### Traceability processing transaction
+
+Traceability owns a `ProcessedEvent` table with an `eventId` primary key, tenant,
+event type, canonical envelope SHA-256 fingerprint, local trace reference and
+processing timestamp. Consumption validates the envelope, takes an event-scoped
+PostgreSQL transaction advisory lock, checks the durable receipt, resolves or
+creates the immutable trace event, and inserts the receipt **atomically**. The
+receipt primary key and existing trace `eventId` unique constraint are the final
+concurrency boundaries. No in-memory deduplication is used.
+
+Identical replays return the same effect; changed content or cross-organization
+reuse conflicts and is logged/skipped by the existing safe consumer loop. A
+matching prior HTTP capture can be resolved without adding a second trace row.
+A concurrent HTTP capture winning the trace uniqueness race causes the whole
+processing transaction to retry. Transient trace/receipt persistence errors roll
+back both and leave Kafka delivery retryable. Malformed messages retain Phase 11's
+safe skip/log behavior. Successful processing receipts are retained indefinitely
+alongside immutable traces so later replays stay safe after outbox cleanup.
+
+### Configuration and retention
+
+Shared validation bounds all integer configuration. Development defaults:
+
+| Setting                   | Default |        Range |
+| ------------------------- | ------: | -----------: |
+| `OUTBOX_POLL_INTERVAL_MS` |    1000 |    100–60000 |
+| `OUTBOX_BATCH_SIZE`       |      20 |        1–200 |
+| `OUTBOX_MAX_ATTEMPTS`     |      20 |       1–1000 |
+| `OUTBOX_RETRY_BASE_MS`    |    1000 |    100–60000 |
+| `OUTBOX_RETRY_MAX_MS`     |  300000 | base–3600000 |
+| `OUTBOX_LEASE_MS`         |   60000 | 3000–3600000 |
+| `OUTBOX_RETENTION_DAYS`   |       7 |        1–365 |
+
+Every successful poll cleans a bounded batch of rows whose status is `PUBLISHED`
+and whose acknowledgment timestamp is older than retention. `PENDING`,
+`PUBLISHING`, `FAILED`, and recently published rows are never deleted by cleanup.
+Cleanup also runs on idle polls so it catches up without new business commands.
+Tune polling, batch size and retention for event volume; failed events require
+operator attention and intentionally remain until resolved.
+
+### Setup and verification
+
+Start existing infrastructure with `pnpm infra:up`, then run:
+
+```sh
+pnpm db:serialization:deploy
+pnpm db:aggregation:deploy
+pnpm db:shipment:deploy
+pnpm db:traceability:deploy
+pnpm build
+pnpm test:phase12
+```
+
+The build generates all Prisma clients. Phase 12 publisher/producer tests create
+and remove disposable schemas in the relevant service-owned databases so workers
+cannot claim unrelated application events. Trace fixtures and durable receipts
+remain append-only, as in earlier tests. Focused tests cover transactional rollback,
+all producers, durable retries, concurrency, lease fencing/recovery, replay and
+consumer rollback, isolation, retention, shutdown and a real Kafka end-to-end flow.
+Phase 11 producer tests retain their mapping/isolation coverage and now assert
+transactional enqueue and successful commands during Kafka outages, replacing the
+superseded direct-publish failure expectation. Run `pnpm test` for all phases.

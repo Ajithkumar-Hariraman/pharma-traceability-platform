@@ -279,15 +279,22 @@ test('Phase 10: Shipment PostgreSQL, signed HTTP service and Gateway integration
   };
   let shipment;
   await t.test(
-    'migration is deployed with isolated owner and shipment tables',
+    'shipment and outbox migrations are deployed with isolated owner',
     async () => {
       const migrations =
         await db.$queryRaw`SELECT migration_name, finished_at FROM _prisma_migrations WHERE rolled_back_at IS NULL`;
-      assert.equal(migrations.length, 1);
-      assert.ok(migrations[0].finished_at);
+      for (const name of [
+        '20261108000000_init_shipment',
+        '20261109000000_phase12_outbox',
+      ])
+        assert.ok(
+          migrations.some((m) => m.migration_name === name && m.finished_at),
+        );
+      assert.ok(migrations.every((m) => m.finished_at));
       const [owner] = await db.$queryRaw`SELECT current_user AS owner`;
       assert.equal(owner.owner, 'shipment_owner');
       await db.shipmentContent.count();
+      await db.outboxEvent.count();
     },
   );
   await t.test('create shipment as OPERATOR', async () => {

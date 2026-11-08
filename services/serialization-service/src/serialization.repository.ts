@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './persistence/prisma.service';
-import type { Prisma, SerializedItemStatus } from '../generated/client';
+import type {
+  Prisma,
+  SerializedItem,
+  SerializedItemStatus,
+} from '../generated/client';
 @Injectable()
 export class SerializationRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -28,6 +32,10 @@ export class SerializationRepository {
     id: string,
     from: SerializedItemStatus,
     to: SerializedItemStatus,
+    afterMutation?: (
+      tx: Prisma.TransactionClient,
+      row: SerializedItem,
+    ) => Promise<void>,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const now = new Date();
@@ -43,7 +51,11 @@ export class SerializationRepository {
         },
       });
       if (changed.count !== 1) return null;
-      return tx.serializedItem.findFirst({ where: { organizationId, id } });
+      const row = await tx.serializedItem.findFirstOrThrow({
+        where: { organizationId, id },
+      });
+      await afterMutation?.(tx, row);
+      return row;
     });
   }
 }

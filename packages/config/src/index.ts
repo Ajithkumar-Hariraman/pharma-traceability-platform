@@ -362,6 +362,7 @@ export function validateSerializationEnvironment(
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3005),
     ...validateKafkaEnvironment(input),
+    ...validateOutboxEnvironment(input),
     BATCH_SERVICE_URL: validateServiceUrl(
       input.BATCH_SERVICE_URL,
       'BATCH_SERVICE_URL',
@@ -388,6 +389,7 @@ export function validateTraceabilityEnvironment(
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3007),
     ...validateKafkaEnvironment(input),
+    ...validateOutboxEnvironment(input),
     TRACE_CAPTURE_SECRET: validateInternalSecret(input.TRACE_CAPTURE_SECRET),
   };
 }
@@ -414,6 +416,7 @@ export function validateAggregationEnvironment(
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3006),
     ...validateKafkaEnvironment(input),
+    ...validateOutboxEnvironment(input),
     SERIALIZATION_SERVICE_URL: validateServiceUrl(
       input.SERIALIZATION_SERVICE_URL,
       'SERIALIZATION_SERVICE_URL',
@@ -441,6 +444,7 @@ export function validateShipmentEnvironment(
     ...validateOrganizationEnvironment(input),
     ...validateEnvironment(input, 3008),
     ...validateKafkaEnvironment(input),
+    ...validateOutboxEnvironment(input),
     ORGANIZATION_SERVICE_URL: validateServiceUrl(
       input.ORGANIZATION_SERVICE_URL,
       'ORGANIZATION_SERVICE_URL',
@@ -542,4 +546,39 @@ export function validateKafkaEnvironment(input: Record<string, unknown>) {
   };
 }
 
-export type KafkaEnvironment = ReturnType<typeof validateKafkaEnvironment>;
+export type KafkaEnvironment = ReturnType<typeof validateKafkaEnvironment> &
+  OutboxEnvironment;
+
+export function validateOutboxEnvironment(input: Record<string, unknown>) {
+  const number = (key: string, fallback: number, min: number, max: number) => {
+    const value = input[key] ?? fallback;
+    if (
+      (typeof value !== 'string' && typeof value !== 'number') ||
+      !/^\d+$/.test(String(value)) ||
+      Number(value) < min ||
+      Number(value) > max
+    )
+      throw new Error(`Invalid ${key}`);
+    return Number(value);
+  };
+  const settings = {
+    OUTBOX_POLL_INTERVAL_MS: number(
+      'OUTBOX_POLL_INTERVAL_MS',
+      1000,
+      100,
+      60000,
+    ),
+    OUTBOX_BATCH_SIZE: number('OUTBOX_BATCH_SIZE', 20, 1, 200),
+    OUTBOX_MAX_ATTEMPTS: number('OUTBOX_MAX_ATTEMPTS', 20, 1, 1000),
+    OUTBOX_RETRY_BASE_MS: number('OUTBOX_RETRY_BASE_MS', 1000, 100, 60000),
+    OUTBOX_RETRY_MAX_MS: number('OUTBOX_RETRY_MAX_MS', 300000, 100, 3600000),
+    OUTBOX_LEASE_MS: number('OUTBOX_LEASE_MS', 60000, 3000, 3600000),
+    OUTBOX_RETENTION_DAYS: number('OUTBOX_RETENTION_DAYS', 7, 1, 365),
+  };
+  if (settings.OUTBOX_RETRY_MAX_MS < settings.OUTBOX_RETRY_BASE_MS)
+    throw new Error(
+      'OUTBOX_RETRY_MAX_MS must be at least OUTBOX_RETRY_BASE_MS',
+    );
+  return settings;
+}
+export type OutboxEnvironment = ReturnType<typeof validateOutboxEnvironment>;

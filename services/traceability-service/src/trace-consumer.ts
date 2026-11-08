@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Messaging, toTrace } from '@pharma/messaging';
+import { Messaging } from '@pharma/messaging';
 import { TraceService } from './trace.service';
 @Injectable()
 export class TraceConsumer {
@@ -8,8 +8,6 @@ export class TraceConsumer {
     private readonly trace: TraceService,
   ) {}
   async onApplicationBootstrap() {
-    await this.messaging.consume((event) =>
-      this.trace.capture(event.organizationId, toTrace(event), event.producer),
-    );
+    await this.messaging.consume((event) => this.trace.consume(event));
   }
 }

@@ -12,7 +12,7 @@ import { InternalIdentityGuard } from './authorization';
 import { HealthController } from './health.controller';
 @Module({
   imports: [
-    MessagingModule,
+    MessagingModule.forOutbox(),
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateAggregationEnvironment,
