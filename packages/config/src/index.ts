@@ -611,6 +611,7 @@ export function validateRecallEnvironment(input: Record<string, unknown>) {
     ...validateEnvironment(input, 3009),
     ...kafka,
     ...validateOutboxEnvironment(input),
+    ...validateRedisEnvironment(input),
     REFERENCE_TIMEOUT_MS: timeout,
     PRODUCT_SERVICE_URL: validateServiceUrl(
       input.PRODUCT_SERVICE_URL,
@@ -627,3 +628,49 @@ export function validateRecallEnvironment(input: Record<string, unknown>) {
   };
 }
 export type RecallEnvironment = ReturnType<typeof validateRecallEnvironment>;
+
+export function validateRedisEnvironment(input: Record<string, unknown>) {
+  const number = (key: string, fallback: number, max: number) => {
+    const value = input[key] ?? fallback;
+    if (
+      !/^\d+$/.test(String(value)) ||
+      Number(value) < 1 ||
+      Number(value) > max
+    )
+      throw new Error(`Invalid ${key}`);
+    return Number(value);
+  };
+  const url = String(input.REDIS_URL ?? 'redis://127.0.0.1:6379');
+  try {
+    const parsed = new URL(url);
+    if (
+      !['redis:', 'rediss:'].includes(parsed.protocol) ||
+      !parsed.hostname ||
+      (parsed.port && Number(parsed.port) > 65535)
+    )
+      throw new Error();
+  } catch {
+    throw new Error('Invalid REDIS_URL');
+  }
+  return {
+    REDIS_URL: url,
+    REDIS_CONNECT_TIMEOUT_MS: number('REDIS_CONNECT_TIMEOUT_MS', 500, 10000),
+    REDIS_COMMAND_TIMEOUT_MS: number('REDIS_COMMAND_TIMEOUT_MS', 500, 10000),
+    VERIFICATION_CACHE_TTL_SECONDS: number(
+      'VERIFICATION_CACHE_TTL_SECONDS',
+      30,
+      300,
+    ),
+    VERIFICATION_UNKNOWN_TTL_SECONDS: number(
+      'VERIFICATION_UNKNOWN_TTL_SECONDS',
+      5,
+      60,
+    ),
+    VERIFICATION_RATE_LIMIT: number('VERIFICATION_RATE_LIMIT', 60, 100000),
+    VERIFICATION_RATE_WINDOW_SECONDS: number(
+      'VERIFICATION_RATE_WINDOW_SECONDS',
+      60,
+      3600,
+    ),
+  };
+}

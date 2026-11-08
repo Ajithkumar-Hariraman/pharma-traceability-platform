@@ -486,3 +486,11 @@ Gateway, initialize the new database for existing volumes, then run
 `pnpm test:phase13`. Recall requires Kafka; Traceability must use Kafka to receive
 its lifecycle history. There is no public verification endpoint or Redis rate
 limiter in this phase.
+
+## Phase 14 — Redis verification caching and rate limiting
+
+Redis is an optional acceleration/control layer for authenticated product verification.
+Compose includes persistent local Redis; Recall uses validated cache-aside responses,
+short TTLs, generation invalidation from Kafka, and a fail-open per-user rate limit.
+PostgreSQL remains authoritative. See [Redis configuration, consistency, failure
+semantics and tests](services/recall-service/README.md#phase-14-optional-redis-acceleration).

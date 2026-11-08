@@ -392,10 +392,15 @@ export class Messaging {
       });
     }
   }
-  async consume(handler: (event: DomainEvent) => Promise<unknown>) {
-    if (!this.enabled) return;
+  async consume(
+    handler: (event: DomainEvent) => Promise<unknown>,
+    groupId?: string,
+  ) {
+    if (!this.enabled || this.stopping) return;
+    await this.consumer?.disconnect();
+    if (this.stopping) return;
     this.consumer = this.kafka.consumer({
-      groupId: this.settings.KAFKA_CONSUMER_GROUP_ID,
+      groupId: groupId ?? this.settings.KAFKA_CONSUMER_GROUP_ID,
       allowAutoTopicCreation: false,
     });
     this.consumer.on(this.consumer.events.CRASH, () => {
@@ -472,6 +477,9 @@ export class Messaging {
       });
       if (status !== 400 && status !== 409) throw error;
     }
+  }
+  consumerStatus() {
+    return { enabled: this.enabled, running: this.consuming && !this.stopping };
   }
   async ready(requireConsumer = false) {
     if (!this.enabled) return;

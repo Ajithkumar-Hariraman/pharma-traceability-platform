@@ -1,3 +1,4 @@
+import { RedisStore } from '@pharma/redis';
 import { Messaging } from '@pharma/messaging';
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from './persistence/prisma.service';
@@ -6,6 +7,7 @@ export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messaging: Messaging,
+    private readonly redis: RedisStore,
   ) {}
   @Get('health') health() {
     return { service: 'recall-service', status: 'ok' };
@@ -23,6 +25,8 @@ export class HealthController {
         service: 'recall-service',
         status: 'ok',
         database: 'ok',
+        redis: await this.redis.health(),
+        invalidation: this.messaging.consumerStatus(),
         outbox: this.prisma.outbox?.status(),
       };
     } catch {

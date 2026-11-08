@@ -124,3 +124,98 @@ Focused tests: `pnpm test:phase13` after `pnpm build`. Tests create isolated sch
 under existing service owners, apply committed migrations and clean them up. They
 exercise actual owning-service HTTP lookups, Gateway authorization, PostgreSQL
 concurrency/rollback, Kafka publication and durable Traceability replay.
+
+## Phase 14: optional Redis acceleration
+
+PostgreSQL remains authoritative, Kafka transports committed domain events, and
+Redis stores disposable verification responses and rate counters. Start Redis with
+`pnpm infra:up`. The Compose service uses AOF, a named volume, a health check,
+loopback port binding and `unless-stopped`. Change `REDIS_PORT` in the infrastructure
+environment and `REDIS_URL` in Recall's environment together if 6379 is occupied.
+For a containerized Recall service use `redis://redis:6379`. The URL supports
+`rediss://` and credentials for a future managed endpoint; no AWS resources are
+created. Keep credentials outside source control. Use a dedicated Redis deployment
+and access controls; persistence is development convenience, not business storage.
+
+`@pharma/redis` owns connection lifecycle, bounded connect/command timeouts,
+GET, expiring SET, DEL, counters/expiry, generation tokens, atomic rate windows,
+and PING. It disables offline queuing so an outage cannot queue old cache writes.
+No consumer uses raw Redis connections or key scans. Nest logging is routed through
+the service's existing Pino logger and never includes URLs or raw serial numbers.
+
+Verification validates and normalizes input before cache access. Keys contain the
+organization, a random generation token, and SHA-256 of the unambiguously encoded
+GTIN/serial pair. This isolates tenants and avoids exposing full serials in keys.
+A miss uses the existing owning-service reads and Recall database query. Only a
+successful decision is cached; reference errors retain existing HTTP error behavior.
+Cached JSON is strictly validated for shape, input identity, timestamp/freshness and
+expiry before returning. A hit retains the original `verifiedAt` observation time.
+
+Defaults (bounded and validated by shared config):
+
+| Setting                            | Default | Maximum |
+| ---------------------------------- | ------- | ------- |
+| `REDIS_CONNECT_TIMEOUT_MS`         | 500     | 10000   |
+| `REDIS_COMMAND_TIMEOUT_MS`         | 500     | 10000   |
+| `VERIFICATION_CACHE_TTL_SECONDS`   | 30      | 300     |
+| `VERIFICATION_UNKNOWN_TTL_SECONDS` | 5       | 60      |
+| `VERIFICATION_RATE_LIMIT`          | 60      | 100000  |
+| `VERIFICATION_RATE_WINDOW_SECONDS` | 60      | 3600    |
+
+All numeric settings have a minimum of 1. VALID, RECALLED, QUARANTINED and
+DECOMMISSIONED share the bounded normal TTL; UNKNOWN uses the shorter TTL.
+Cache read/write/delete failures fall back to authoritative reads or return the
+already computed result. An unavailable owning service never creates a VALID entry.
+`/ready` retains database/outbox business readiness and reports `redis: degraded`
+without changing the response to 503 solely for optional Redis failure.
+
+### Invalidation and consistency
+
+Consumer startup runs in the background with connection retry, so group joining
+does not delay business readiness. `/ready` reports its running state separately.
+A dedicated Kafka group `verification-invalidation-v1`, shared by Recall replicas
+and distinct from traceability, consumes recall activation/close/cancel and
+serialization commissioning/quarantine/decommission events. It rotates the
+organization generation. Those events identify internal UUID scopes, not external
+GTIN/serial identities, so organization invalidation avoids reverse indexes and
+serial enumeration, including for UNKNOWN responses. This trades some cache hit
+rate for a simple bounded operation. Unrelated organizations are untouched.
+
+Recall lifecycle commands also rotate the generation after commit, before returning,
+to reduce local read-after-command lag. The transactional outbox remains the durable
+retry path if this best-effort update fails. Redis invalidation errors propagate to
+Messaging's existing heartbeat/retry loop; the offset is not acknowledged until
+invalidation succeeds. Malformed events use existing sanitized skip handling.
+Duplicate and out-of-order deliveries each create a fresh random token and are safe.
+No business consumer-idempotency table is needed for this naturally repeatable side
+effect. A missing generation is atomically initialized to a fresh random value:
+eviction cannot resurrect a prior namespace. Concurrent fills use the generation
+captured before authoritative reads, so late writes into an invalidated namespace
+remain unreachable. Old entries expire naturally. Generation keys have no TTL;
+there is one per organization seen by verification or invalidation, not one per serial or event.
+
+Invalidation is asynchronous: a committed remote change may be observable only after
+Kafka delivery, with TTL bounding stale observations during lag or outage. This is
+not a linearizable safety check. Product/GTIN and Batch services currently have no
+suitable domain events/outbox; their changes are bounded by the same short TTL.
+Extending their durable event producers is a separate change. UTC date expiry is
+also checked on cache hits, so a VALID response cannot cross its known expiry date.
+Operational decisions requiring fresh authoritative reads must account for this
+cache policy. Redis recovery does not imply Kafka has caught up; monitor consumer
+readiness status and logs/lag alongside `/ready` and degraded Redis warnings.
+
+### Verification rate limiting
+
+Only the authenticated verification controller applies the limiter, after the signed
+internal identity guard. The key hashes organization + authenticated user + endpoint;
+no forwarded IP header is trusted and other service routes are unaffected. One atomic
+Lua operation increments a counter and sets expiry on the first request. This is a
+fixed-duration window starting at the first request, bounded by configured seconds.
+Cache hits count as requests. Over-limit responses return 429 and `Retry-After`;
+the Gateway preserves both. Redis failure is fail-open for authenticated users.
+A future public route can reuse the atomic window helper with a separately trusted
+identity and policy. Arbitrary callers cannot supply signed authenticated identities.
+
+Run `pnpm test` for the full suite. Phase 14's real Redis test uses the standard Compose
+port 6379 by default; set `PHASE14_REDIS_URL` to use another test Redis URL.
+Tests create randomly named keys and clean them up; they never flush a database.

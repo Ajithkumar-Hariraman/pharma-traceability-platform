@@ -1,3 +1,8 @@
+import { RedisModule } from '@pharma/redis';
+import {
+  VerificationCache,
+  VerificationInvalidationConsumer,
+} from './verification-cache';
 import { MessagingModule } from '@pharma/messaging';
 import { ReferenceClient } from './reference.client';
 import { VerificationService } from './verification.service';
@@ -14,6 +19,7 @@ import { HealthController } from './health.controller';
 @Module({
   imports: [
     MessagingModule.forOutbox(),
+    RedisModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateRecallEnvironment,
@@ -34,6 +40,8 @@ import { HealthController } from './health.controller';
     RecallService,
     ReferenceClient,
     VerificationService,
+    VerificationCache,
+    VerificationInvalidationConsumer,
     InternalIdentityGuard,
   ],
 })

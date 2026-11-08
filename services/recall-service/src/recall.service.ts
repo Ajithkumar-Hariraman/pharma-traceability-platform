@@ -1,5 +1,7 @@
+import { VerificationCache } from './verification-cache';
 import {
   Injectable,
+  Optional,
   BadRequestException,
   NotFoundException,
   ConflictException,
@@ -46,6 +48,7 @@ export class RecallService {
   constructor(
     private readonly db: PrismaService,
     private readonly refs: ReferenceClient,
+    @Optional() private readonly cache?: VerificationCache,
   ) {}
   async create(identity: Identity, body: unknown) {
     const input = parse(createSchema, body);
@@ -114,7 +117,7 @@ export class RecallService {
     if (before.status !== from)
       throw new ConflictException('Invalid recall lifecycle transition');
     if (command === 'activate') await this.refs.scope(before, identity);
-    return this.unique(() =>
+    const result = await this.unique(() =>
       this.db.$transaction(async (tx) => {
         const changed = await tx.recall.updateMany({
           where: { id, organizationId: identity.organizationId, status: from },
@@ -162,6 +165,12 @@ export class RecallService {
         return row;
       }),
     );
+    try {
+      await this.cache?.invalidateOrganization(identity.organizationId);
+    } catch {
+      this.cache?.degraded(identity.organizationId);
+    }
+    return result;
   }
   private async unique<T>(operation: () => Promise<T>) {
     try {
