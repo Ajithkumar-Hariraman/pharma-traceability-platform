@@ -144,7 +144,13 @@ export interface ProductReference {
 }
 export function canWriteOrganizationResource(
   role: OrganizationRole,
-  resource: 'product' | 'batch' | 'serialization' | 'aggregation' | 'shipment',
+  resource:
+    | 'product'
+    | 'batch'
+    | 'serialization'
+    | 'aggregation'
+    | 'shipment'
+    | 'recall',
 ): boolean {
   return (
     role === 'ORG_ADMIN' || (resource !== 'product' && role === 'OPERATOR')
@@ -310,4 +316,53 @@ export interface Shipment {
   createdAt: string;
   updatedAt: string;
   contents?: { id: string; kind: string; referenceId: string }[];
+}
+
+export const recallStatuses = [
+  'DRAFT',
+  'ACTIVE',
+  'CLOSED',
+  'CANCELLED',
+] as const;
+export type RecallStatus = (typeof recallStatuses)[number];
+export const recallSeverities = ['CLASS_I', 'CLASS_II', 'CLASS_III'] as const;
+export interface Recall {
+  id: string;
+  organizationId: string;
+  recallNumber: string;
+  title: string;
+  reason: string;
+  severity: (typeof recallSeverities)[number];
+  status: RecallStatus;
+  productId: string;
+  gtinId: string | null;
+  batchId: string | null;
+  createdBy: string;
+  initiatedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export const verificationResults = [
+  'VALID',
+  'RECALLED',
+  'QUARANTINED',
+  'DECOMMISSIONED',
+  'UNKNOWN',
+] as const;
+export interface VerificationResult {
+  result: (typeof verificationResults)[number];
+  gtin: string;
+  serialNumber: string;
+  verifiedAt: string;
+  explanation: string;
+  productName?: string;
+  lotNumber?: string;
+  expiryDate?: string | null;
+  recall?: {
+    recallNumber: string;
+    title: string;
+    reason: string;
+    severity: string;
+  };
 }

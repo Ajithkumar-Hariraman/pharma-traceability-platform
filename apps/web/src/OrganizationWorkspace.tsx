@@ -1,3 +1,5 @@
+import { RecallWorkspace } from './RecallWorkspace';
+import { VerificationWorkspace } from './VerificationWorkspace';
 import { ShipmentWorkspace } from './ShipmentWorkspace';
 import { TraceWorkspace } from './TraceWorkspace';
 import { AggregationWorkspace } from './AggregationWorkspace';
@@ -357,6 +359,18 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
       ) : organization ? (
         <>
           <nav className="actions" aria-label="Organization navigation">
+            {['recalls', 'verification'].map((section) => (
+              <a
+                key={section}
+                href={`/organizations/${organization.id}/${section}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(`/organizations/${organization.id}/${section}`);
+                }}
+              >
+                {section === 'recalls' ? 'Recalls' : 'Verify product'}
+              </a>
+            ))}
             <a
               href={`/organizations/${organization.id}`}
               onClick={(event) => {
@@ -417,7 +431,20 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
             </a>
           </nav>
 
-          {parts[2] === 'shipments' ? (
+          {parts[2] === 'recalls' ? (
+            <RecallWorkspace
+              key={path}
+              organizationId={organization.id}
+              recallId={parts[3]}
+              role={role}
+              navigate={navigate}
+            />
+          ) : parts[2] === 'verification' ? (
+            <VerificationWorkspace
+              key={organization.id}
+              organizationId={organization.id}
+            />
+          ) : parts[2] === 'shipments' ? (
             <ShipmentWorkspace
               key={path}
               organizationId={organization.id}

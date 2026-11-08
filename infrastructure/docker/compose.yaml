@@ -63,6 +63,7 @@ services:
       ORGANIZATION_DB_PASSWORD: ${ORGANIZATION_DB_PASSWORD:?Set ORGANIZATION_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD:?Set PRODUCT_DB_PASSWORD}
       BATCH_DB_PASSWORD: ${BATCH_DB_PASSWORD:?Set BATCH_DB_PASSWORD}
+      RECALL_DB_PASSWORD: ${RECALL_DB_PASSWORD:?Set RECALL_DB_PASSWORD}
       SHIPMENT_DB_PASSWORD: ${SHIPMENT_DB_PASSWORD:?Set SHIPMENT_DB_PASSWORD}
       AGGREGATION_DB_PASSWORD: ${AGGREGATION_DB_PASSWORD:?Set AGGREGATION_DB_PASSWORD}
       SERIALIZATION_DB_PASSWORD: ${SERIALIZATION_DB_PASSWORD:?Set SERIALIZATION_DB_PASSWORD}
@@ -76,6 +77,7 @@ services:
       - ./init-serialization.sh:/docker-entrypoint-initdb.d/05-serialization.sh:ro
       - ./init-traceability.sh:/docker-entrypoint-initdb.d/07-traceability.sh:ro
       - ./init-aggregation.sh:/docker-entrypoint-initdb.d/06-aggregation.sh:ro
+      - ./init-recall.sh:/docker-entrypoint-initdb.d/09-recall.sh:ro
       - ./init-shipment.sh:/docker-entrypoint-initdb.d/08-shipment.sh:ro
       - auth_postgres_data:/var/lib/postgresql/data
     healthcheck:

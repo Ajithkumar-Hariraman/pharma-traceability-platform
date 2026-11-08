@@ -44,7 +44,11 @@
     "db:shipment:deploy": "pnpm --filter @pharma/shipment-service db:deploy",
     "test:phase10": "node --test tests/phase10.test.cjs",
     "test:phase11": "node --test tests/phase11.test.cjs",
-    "test:phase12": "node --test tests/phase12.test.cjs"
+    "test:phase12": "node --test tests/phase12.test.cjs",
+    "dev:recall": "pnpm --filter @pharma/recall-service... build && pnpm --filter @pharma/recall-service dev",
+    "db:recall:generate": "pnpm --filter @pharma/recall-service db:generate",
+    "db:recall:deploy": "pnpm --filter @pharma/recall-service db:deploy",
+    "test:phase13": "node --test tests/phase13.test.cjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",

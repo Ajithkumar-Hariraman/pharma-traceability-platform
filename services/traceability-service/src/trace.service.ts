@@ -113,10 +113,15 @@ export class TraceService {
         'serialization-service',
         'aggregation-service',
         'shipment-service',
+        'recall-service',
       ].includes(caller) ||
       (caller === 'serialization-service' && data.eventType !== 'OBJECT') ||
       (caller === 'aggregation-service' && data.eventType !== 'AGGREGATION') ||
-      (caller === 'shipment-service' && data.eventType !== 'TRANSACTION')
+      (caller === 'shipment-service' && data.eventType !== 'TRANSACTION') ||
+      (caller === 'recall-service' &&
+        (data.eventType !== 'TRANSACTION' ||
+          !data.productId ||
+          !data.metadata?.recallId))
     )
       throw new BadRequestException('Caller cannot capture this event type');
     const existing = await storage.traceEvent.findUnique({

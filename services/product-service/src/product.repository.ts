@@ -4,6 +4,9 @@ import type { Prisma } from '../generated/client';
 @Injectable()
 export class ProductRepository {
   constructor(private readonly prisma: PrismaService) {}
+  lookup(organizationId: string, gtin: string) {
+    return this.prisma.gTIN.findFirst({ where: { organizationId, gtin } });
+  }
   create(data: Prisma.ProductUncheckedCreateInput) {
     return this.prisma.product.create({ data });
   }

@@ -43,6 +43,13 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 @Injectable()
 export class ProductService {
   constructor(private readonly repository: ProductRepository) {}
+  async lookup(organizationId: string, input: string) {
+    const gtin = normalizeGtin(input);
+    if (!gtin) throw new BadRequestException('Invalid GTIN');
+    const row = await this.repository.lookup(organizationId, gtin);
+    if (!row) throw new NotFoundException('GTIN not found');
+    return { ...row, product: await this.get(organizationId, row.productId) };
+  }
   create(organizationId: string, body: unknown) {
     return this.repository.create({ organizationId, ...parse(product, body) });
   }

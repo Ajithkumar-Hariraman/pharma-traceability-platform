@@ -57,6 +57,7 @@ export interface AuthEnvironment extends AppEnvironment {
 }
 
 export interface GatewayEnvironment extends AppEnvironment {
+  RECALL_SERVICE_URL?: string;
   AUTH_SERVICE_URL: string;
   AUTH_SERVICE_TIMEOUT_MS: number;
   SHIPMENT_SERVICE_URL?: string;
@@ -141,6 +142,18 @@ export function validateGatewayEnvironment(
   return {
     ...validateEnvironment(input, 3000),
     AUTH_SERVICE_URL: url.toString().replace(/\/$/, ''),
+    ...(input.RECALL_SERVICE_URL !== undefined
+      ? (() => {
+          if (!input.ORGANIZATION_SERVICE_URL)
+            throw new Error('ORGANIZATION_SERVICE_URL is required for Recall');
+          return {
+            RECALL_SERVICE_URL: validateServiceUrl(
+              input.RECALL_SERVICE_URL,
+              'RECALL_SERVICE_URL',
+            ),
+          };
+        })()
+      : {}),
     AUTH_SERVICE_TIMEOUT_MS: timeout,
     ...(input.TRACEABILITY_SERVICE_URL !== undefined
       ? {
@@ -582,3 +595,35 @@ export function validateOutboxEnvironment(input: Record<string, unknown>) {
   return settings;
 }
 export type OutboxEnvironment = ReturnType<typeof validateOutboxEnvironment>;
+
+export function validateRecallEnvironment(input: Record<string, unknown>) {
+  const timeout = Number(input.REFERENCE_TIMEOUT_MS ?? 3000);
+  if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30000)
+    throw new Error('Invalid REFERENCE_TIMEOUT_MS');
+  const kafka = validateKafkaEnvironment({
+    ...input,
+    EVENT_TRANSPORT: input.EVENT_TRANSPORT ?? 'kafka',
+  });
+  if (kafka.EVENT_TRANSPORT !== 'kafka')
+    throw new Error('Recall requires Kafka and transactional Outbox');
+  return {
+    ...validateOrganizationEnvironment(input),
+    ...validateEnvironment(input, 3009),
+    ...kafka,
+    ...validateOutboxEnvironment(input),
+    REFERENCE_TIMEOUT_MS: timeout,
+    PRODUCT_SERVICE_URL: validateServiceUrl(
+      input.PRODUCT_SERVICE_URL,
+      'PRODUCT_SERVICE_URL',
+    ),
+    BATCH_SERVICE_URL: validateServiceUrl(
+      input.BATCH_SERVICE_URL,
+      'BATCH_SERVICE_URL',
+    ),
+    SERIALIZATION_SERVICE_URL: validateServiceUrl(
+      input.SERIALIZATION_SERVICE_URL,
+      'SERIALIZATION_SERVICE_URL',
+    ),
+  };
+}
+export type RecallEnvironment = ReturnType<typeof validateRecallEnvironment>;
