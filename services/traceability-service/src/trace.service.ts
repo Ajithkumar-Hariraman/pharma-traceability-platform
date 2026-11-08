@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { eventSchema, toTrace } from '@pharma/messaging';
 import {
   Injectable,
   BadRequestException,
@@ -95,7 +97,12 @@ function canonical(v: unknown): string {
 @Injectable()
 export class TraceService {
   constructor(private readonly db: PrismaService) {}
-  async capture(organizationId: string, body: unknown, caller: string) {
+  async capture(
+    organizationId: string,
+    body: unknown,
+    caller: string,
+    storage: Pick<Prisma.TransactionClient, 'traceEvent'> = this.db,
+  ) {
     const parsed = captureSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException('Invalid trace event');
     const data = parsed.data;
@@ -112,7 +119,7 @@ export class TraceService {
       (caller === 'shipment-service' && data.eventType !== 'TRANSACTION')
     )
       throw new BadRequestException('Caller cannot capture this event type');
-    const existing = await this.db.traceEvent.findUnique({
+    const existing = await storage.traceEvent.findUnique({
       where: { eventId: data.eventId },
     });
     const compare = (row: typeof existing) => {
@@ -126,13 +133,13 @@ export class TraceService {
     if (existing) return compare(existing);
     if (
       data.parentEventId &&
-      !(await this.db.traceEvent.findFirst({
+      !(await storage.traceEvent.findFirst({
         where: { id: data.parentEventId, organizationId },
       }))
     )
       throw new BadRequestException('Parent event not found');
     try {
-      return await this.db.traceEvent.create({
+      return await storage.traceEvent.create({
         data: {
           ...data,
           metadata:
@@ -142,6 +149,7 @@ export class TraceService {
         },
       });
     } catch (error) {
+      if (storage !== this.db) throw error;
       if (
         typeof error === 'object' &&
         error &&
@@ -149,10 +157,63 @@ export class TraceService {
         error.code === 'P2002'
       )
         return compare(
-          await this.db.traceEvent.findUnique({
+          await storage.traceEvent.findUnique({
             where: { eventId: data.eventId },
           }),
         );
+      throw error;
+    }
+  }
+  async consume(input: unknown) {
+    const event = eventSchema.parse(input);
+    const hash = createHash('sha256')
+      .update(canonical(JSON.parse(JSON.stringify(event))))
+      .digest('hex');
+    const process = () =>
+      this.db.$transaction(async (tx) => {
+        // Coordinate consumers by event identity; uniqueness also protects against other writers.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${event.eventId}, 12))::text`;
+        const processed = await tx.processedEvent.findUnique({
+          where: { eventId: event.eventId },
+        });
+        if (processed) {
+          if (
+            processed.organizationId !== event.organizationId ||
+            processed.envelopeHash !== hash
+          )
+            throw new ConflictException('Conflicting eventId');
+          return tx.traceEvent.findUniqueOrThrow({
+            where: { id: processed.traceEventId },
+          });
+        }
+        const trace = await this.capture(
+          event.organizationId,
+          toTrace(event),
+          event.producer,
+          tx,
+        );
+        await tx.processedEvent.create({
+          data: {
+            eventId: event.eventId,
+            organizationId: event.organizationId,
+            eventType: event.eventType,
+            envelopeHash: hash,
+            traceEventId: trace.id,
+          },
+        });
+        return trace;
+      });
+    try {
+      return await process();
+    } catch (error) {
+      // A concurrent HTTP capture can win the trace unique constraint. Retry the entire transaction.
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'P2002'
+      )
+        return process();
       throw error;
     }
   }

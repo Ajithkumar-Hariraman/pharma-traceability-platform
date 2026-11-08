@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import {
   Injectable,
+  Inject,
+  Optional,
+  type DynamicModule,
   Module,
   Global,
   Logger,
@@ -111,7 +114,7 @@ const shipmentFacts = z
   .strict();
 export const eventSchema = z
   .object({
-    eventId: z.string().min(1).max(200),
+    eventId: z.string().trim().min(1).max(200),
     eventType: z.enum(Object.keys(definitions) as [EventType, ...EventType[]]),
     eventVersion: z.literal(1),
     organizationId: id,
@@ -252,7 +255,12 @@ export class Messaging {
   private stopping = false;
   private readonly logger = new Logger('Messaging');
   private readonly settings;
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    @Optional()
+    @Inject('DURABLE_EVENT_PRODUCER')
+    private readonly durableProducer = false,
+  ) {
     this.settings = validateKafkaEnvironment(
       Object.fromEntries(
         [
@@ -303,12 +311,20 @@ export class Messaging {
     this.producer.on(this.producer.events.CONNECT, () => {
       this.connected = true;
     });
-    await this.producer.connect();
+    try {
+      await this.producer.connect();
+    } catch (error) {
+      if (!this.durableProducer) throw error;
+      this.logger.warn({
+        message: 'Kafka unavailable; committed events remain in outbox',
+      });
+    }
   }
   async publish(input: DomainEvent) {
     const event = eventSchema.parse(input);
     try {
       if (!this.producer) throw new Error('Producer unavailable');
+      if (!this.connected) await this.producer.connect();
       await this.producer.send({
         topic: TOPIC,
         acks: -1,
@@ -439,4 +455,13 @@ export class Messaging {
 }
 @Global()
 @Module({ providers: [Messaging], exports: [Messaging] })
-export class MessagingModule {}
+export class MessagingModule {
+  static forOutbox(): DynamicModule {
+    return {
+      module: MessagingModule,
+      providers: [{ provide: 'DURABLE_EVENT_PRODUCER', useValue: true }],
+    };
+  }
+}
+
+export * from './outbox';

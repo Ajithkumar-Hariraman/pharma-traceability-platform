@@ -1,3 +1,5 @@
+import { enqueueEvent, fromTrace } from '@pharma/messaging';
+import type { TraceCapture } from '@pharma/contracts';
 import { randomUUID } from 'node:crypto';
 import { TraceCaptureClient } from './trace-capture.client';
 import {
@@ -158,17 +160,7 @@ export class SerializationService {
         : command === 'decommission'
           ? 'DECOMMISSIONED'
           : 'QUARANTINED';
-    const result = await this.repository.transition(
-      organizationId,
-      id,
-      row.status,
-      to,
-    );
-    if (!result)
-      throw new ConflictException(
-        'Invalid serialized item lifecycle transition',
-      );
-    await this.trace.capture({
+    const makeEvent = (result: typeof row): TraceCapture => ({
       organizationId,
       eventId: randomUUID(),
       eventType: 'OBJECT',
@@ -197,6 +189,20 @@ export class SerializationService {
       gtinId: result.gtinId,
       metadata: { command, userId },
     });
+    const result = await this.repository.transition(
+      organizationId,
+      id,
+      row.status,
+      to,
+      this.trace.outboxEnabled
+        ? async (tx, result) => enqueueEvent(tx, fromTrace(makeEvent(result)))
+        : undefined,
+    );
+    if (!result)
+      throw new ConflictException(
+        'Invalid serialized item lifecycle transition',
+      );
+    if (!this.trace.outboxEnabled) await this.trace.capture(makeEvent(result));
     return result;
   }
   private async unique<T>(operation: () => Promise<T>): Promise<T> {

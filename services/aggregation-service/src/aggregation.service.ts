@@ -1,4 +1,4 @@
-import { Messaging, aggregationEvent } from '@pharma/messaging';
+import { Messaging, aggregationEvent, enqueueEvent } from '@pharma/messaging';
 import {
   Injectable,
   Optional,
@@ -163,6 +163,17 @@ export class AggregationService {
               });
               if (!result.count)
                 throw new NotFoundException('Relationship not found');
+              if (this.messaging?.enabled)
+                await enqueueEvent(
+                  tx,
+                  aggregationEvent(
+                    organizationId,
+                    parentId,
+                    childId,
+                    type,
+                    remove,
+                  ),
+                );
               return { removed: true };
             }
             if (parent.status !== 'ACTIVE')
@@ -188,7 +199,7 @@ export class AggregationService {
               throw new ConflictException(
                 'Child already has a parent; disaggregate before moving',
               );
-            return tx.aggregationRelation.create({
+            const relation = await tx.aggregationRelation.create({
               data: {
                 organizationId,
                 parentContainerId: parentId,
@@ -196,13 +207,21 @@ export class AggregationService {
                 ...source,
               },
             });
+            if (this.messaging?.enabled)
+              await enqueueEvent(
+                tx,
+                aggregationEvent(
+                  organizationId,
+                  parentId,
+                  childId,
+                  type,
+                  remove,
+                ),
+              );
+            return relation;
           },
           { isolationLevel: 'Serializable' },
         );
-        if (this.messaging?.enabled)
-          await this.messaging.publish(
-            aggregationEvent(organizationId, parentId, childId, type, remove),
-          );
         return result;
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {

@@ -1,3 +1,4 @@
+import { enqueueEvent, fromTrace } from '@pharma/messaging';
 import {
   Injectable,
   BadRequestException,
@@ -225,7 +226,7 @@ export class ShipmentService {
           );
         }
       }
-      return tx.shipment.update({
+      const result = await tx.shipment.update({
         where: { id },
         data: {
           status: targets[action],
@@ -239,35 +240,48 @@ export class ShipmentService {
         },
         include: { contents: true },
       });
+      if (
+        this.trace.outboxEnabled &&
+        (action === 'dispatch' || action === 'receive')
+      )
+        await enqueueEvent(tx, fromTrace(this.shipmentEvent(result, action)));
+      return result;
     });
-    if (action === 'dispatch' || action === 'receive') {
-      const event: TraceCapture = {
-        organizationId: org,
-        eventId: `shipment:${id}:${action}`,
-        eventType: 'TRANSACTION',
-        action: 'OBSERVE',
-        eventTime: (action === 'dispatch'
-          ? row.dispatchedAt!
-          : row.receivedAt!
-        ).toISOString(),
-        businessStep: action === 'dispatch' ? 'shipping' : 'receiving',
-        facilityId:
-          action === 'dispatch'
-            ? row.sourceFacilityId
-            : row.destinationFacilityId,
-        metadata: {
-          shipmentId: id,
-          shipmentNumber: row.shipmentNumber,
-          sourceFacilityId: row.sourceFacilityId,
-          destinationFacilityId: row.destinationFacilityId,
-          contents: row.contents.map((c) => ({
-            kind: c.kind,
-            referenceId: c.referenceId,
-          })),
-        },
-      };
-      await this.trace.capture(event);
-    }
+    if (
+      !this.trace.outboxEnabled &&
+      (action === 'dispatch' || action === 'receive')
+    )
+      await this.trace.capture(this.shipmentEvent(row, action));
     return row;
+  }
+  private shipmentEvent(
+    row: Prisma.ShipmentGetPayload<{ include: { contents: true } }>,
+    action: 'dispatch' | 'receive',
+  ): TraceCapture {
+    return {
+      organizationId: row.organizationId,
+      eventId: `shipment:${row.id}:${action}`,
+      eventType: 'TRANSACTION',
+      action: 'OBSERVE',
+      eventTime: (action === 'dispatch'
+        ? row.dispatchedAt!
+        : row.receivedAt!
+      ).toISOString(),
+      businessStep: action === 'dispatch' ? 'shipping' : 'receiving',
+      facilityId:
+        action === 'dispatch'
+          ? row.sourceFacilityId
+          : row.destinationFacilityId,
+      metadata: {
+        shipmentId: row.id,
+        shipmentNumber: row.shipmentNumber,
+        sourceFacilityId: row.sourceFacilityId,
+        destinationFacilityId: row.destinationFacilityId,
+        contents: row.contents.map((c) => ({
+          kind: c.kind,
+          referenceId: c.referenceId,
+        })),
+      },
+    };
   }
 }

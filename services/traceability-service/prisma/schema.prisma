@@ -36,10 +36,22 @@ model TraceEvent {
  childContainerId String? @db.Uuid
  parentEventId String? @db.Uuid
  metadata Json? @db.JsonB
+ processing ProcessedEvent?
  @@index([organizationId, eventTime])
  @@index([serializedItemId, eventTime])
  @@index([batchId, eventTime])
  @@index([aggregateContainerId, eventTime])
  @@index([childContainerId, eventTime])
  @@index([eventType])
+}
+
+model ProcessedEvent {
+ eventId String @id @db.VarChar(200)
+ organizationId String @db.Uuid
+ eventType String @db.VarChar(100)
+ envelopeHash String @db.Char(64)
+ traceEventId String @unique @db.Uuid
+ processedAt DateTime @default(now()) @db.Timestamptz(3)
+ traceEvent TraceEvent @relation(fields: [traceEventId], references: [id], onDelete: Restrict)
+ @@index([organizationId, processedAt])
 }

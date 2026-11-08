@@ -152,6 +152,12 @@ test('trace capture and query use PostgreSQL: idempotency, immutability, tenant 
     );
     await assert.rejects(
       db.$executeRawUnsafe('TRUNCATE TABLE "TraceEvent"'),
+      /append-only|foreign key constraint/,
+    );
+    // Phase 12 receipts reference traces. Include both tables to also prove the
+    // append-only trigger still rejects truncation beyond FK protection.
+    await assert.rejects(
+      db.$executeRawUnsafe('TRUNCATE TABLE "TraceEvent", "ProcessedEvent"'),
       /append-only/,
     );
   });

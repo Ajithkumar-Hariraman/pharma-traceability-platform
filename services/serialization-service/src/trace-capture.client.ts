@@ -1,4 +1,4 @@
-import { Messaging, fromTrace } from '@pharma/messaging';
+import { Messaging } from '@pharma/messaging';
 import {
   Injectable,
   Optional,
@@ -13,9 +13,14 @@ export class TraceCaptureClient {
     private readonly config: ConfigService,
     @Optional() private readonly messaging?: Messaging,
   ) {}
+  get outboxEnabled() {
+    return this.messaging?.enabled === true;
+  }
   async capture(event: TraceCapture) {
-    if (this.messaging?.enabled)
-      return this.messaging.publish(fromTrace(event));
+    if (this.outboxEnabled)
+      throw new Error(
+        'Kafka events must be enqueued inside the business transaction',
+      );
     const path = `/internal/organizations/${event.organizationId}/trace/events`;
     const time = String(Date.now());
     const raw = JSON.stringify(event);

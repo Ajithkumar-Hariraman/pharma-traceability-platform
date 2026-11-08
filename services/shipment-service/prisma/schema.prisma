@@ -44,3 +44,31 @@ model ShipmentContent {
  @@unique([shipmentId, kind, referenceId])
  @@index([organizationId, kind, referenceId])
 }
+
+enum OutboxStatus {
+ PENDING
+ PUBLISHING
+ PUBLISHED
+ FAILED
+}
+model OutboxEvent {
+ id String @id @default(uuid()) @db.Uuid
+ eventId String @unique @db.VarChar(200)
+ eventType String @db.VarChar(100)
+ eventVersion Int
+ organizationId String @db.Uuid
+ aggregateType String @db.VarChar(50)
+ aggregateId String @db.Uuid
+ envelope Json @db.JsonB
+ status OutboxStatus @default(PENDING)
+ attempts Int @default(0)
+ availableAt DateTime @default(now()) @db.Timestamptz(3)
+ claimToken String? @db.Uuid
+ publishedAt DateTime? @db.Timestamptz(3)
+ lastError String? @db.VarChar(200)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@index([status, availableAt, createdAt])
+ @@index([status, publishedAt])
+ @@index([organizationId, aggregateType, aggregateId])
+}

@@ -12,12 +12,22 @@ export class HealthController {
   }
   @Get('ready') async ready() {
     try {
-      await this.messaging.ready();
+      if (
+        this.messaging.enabled &&
+        (!this.prisma.outbox?.status().running ||
+          !this.prisma.outbox.status().storageAvailable)
+      )
+        throw new Error('Outbox publisher unavailable');
       await this.prisma.$queryRaw`SELECT 1`;
-      return { service: 'aggregation-service', status: 'ok', database: 'ok' };
+      return {
+        service: 'aggregation-service',
+        status: 'ok',
+        database: 'ok',
+        outbox: this.prisma.outbox?.status(),
+      };
     } catch {
       throw new ServiceUnavailableException(
-        'Aggregation database or messaging unavailable',
+        'Aggregation database or outbox unavailable',
       );
     }
   }

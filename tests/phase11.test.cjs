@@ -118,7 +118,7 @@ test('Phase 11 Kafka config validates opt-in, broker addresses, timeouts, TLS an
   assert.equal(validateKafkaEnvironment(tls).KAFKA_SSL, true);
 });
 
-test('Phase 11 serialization commands publish mapped events only after successful commits', async () => {
+test('Phase 11 serialization commands persist mapped events in the business transaction', async () => {
   const sent = [];
   const messaging = { enabled: true, publish: async (e) => sent.push(e) };
   const row = {
@@ -129,8 +129,14 @@ test('Phase 11 serialization commands publish mapped events only after successfu
   };
   const repo = {
     find: async () => row,
-    transition: async (_o, _id, _from, status) => {
+    transition: async (_o, _id, _from, status, afterMutation) => {
       row.status = status;
+      await afterMutation?.(
+        {
+          outboxEvent: { create: async ({ data }) => sent.push(data.envelope) },
+        },
+        row,
+      );
       return { ...row };
     },
   };
@@ -178,20 +184,18 @@ test('Phase 11 serialization commands publish mapped events only after successfu
   messaging.publish = async () => {
     throw new Error('Kafka unavailable');
   };
-  await assert.rejects(
-    service.command(
-      row.organizationId,
-      row.id,
-      'commission',
-      {},
-      randomUUID(),
-      'ORG_ADMIN',
-    ),
+  await service.command(
+    row.organizationId,
+    row.id,
+    'commission',
+    {},
+    randomUUID(),
+    'ORG_ADMIN',
   );
   assert.equal(row.status, 'COMMISSIONED');
 });
 
-test('Phase 11 shipment dispatch and receiving produce semantic events after commit', async () => {
+test('Phase 11 shipment dispatch and receiving persist semantic events atomically', async () => {
   const sent = [];
   const row = {
     id: randomUUID(),
@@ -203,6 +207,7 @@ test('Phase 11 shipment dispatch and receiving produce semantic events after com
     contents: [{ kind: 'items', referenceId: randomUUID() }],
   };
   const tx = {
+    outboxEvent: { create: async ({ data }) => sent.push(data.envelope) },
     $queryRaw: async () => [],
     $executeRaw: async () => 0,
     shipment: {
@@ -236,7 +241,7 @@ test('Phase 11 shipment dispatch and receiving produce semantic events after com
   assert.equal(row.status, 'RECEIVED');
 });
 
-test('Phase 11 aggregation produces all four events and preserves committed state on publish failure', async (t) => {
+test('Phase 11 aggregation persists all four events and succeeds while Kafka is unavailable', async (t) => {
   const db = new AggregationDB(new ConfigService(env('aggregation')));
   await db.$connect();
   const org = randomUUID(),
@@ -245,6 +250,7 @@ test('Phase 11 aggregation produces all four events and preserves committed stat
   t.after(async () => {
     await db.aggregationRelation.deleteMany({ where: { organizationId: org } });
     await db.aggregateContainer.deleteMany({ where: { organizationId: org } });
+    await db.outboxEvent.deleteMany({ where: { organizationId: org } });
     await db.$disconnect();
   });
   const messaging = { enabled: true, publish: async (e) => sent.push(e) };
@@ -267,6 +273,14 @@ test('Phase 11 aggregation produces all four events and preserves committed stat
   ])
     for (const remove of [false, true])
       await service.change(org, box.id, type, child, remove, user, 'OPERATOR');
+  sent.push(
+    ...(
+      await db.outboxEvent.findMany({
+        where: { organizationId: org },
+        orderBy: { createdAt: 'asc' },
+      })
+    ).map((row) => row.envelope),
+  );
   assert.deepEqual(
     sent.map((e) => e.eventType),
     [
@@ -291,16 +305,18 @@ test('Phase 11 aggregation produces all four events and preserves committed stat
   messaging.publish = async () => {
     throw new Error('Kafka unavailable');
   };
-  await assert.rejects(
-    service.change(
-      org,
-      box.id,
-      'containers',
-      inner.id,
-      false,
-      user,
-      'OPERATOR',
-    ),
+  await service.change(
+    org,
+    box.id,
+    'containers',
+    inner.id,
+    false,
+    user,
+    'OPERATOR',
+  );
+  assert.equal(
+    await db.outboxEvent.count({ where: { organizationId: org } }),
+    5,
   );
   assert.equal(
     await db.aggregationRelation.count({ where: { organizationId: org } }),
