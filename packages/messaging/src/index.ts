@@ -17,6 +17,27 @@ import type { TraceCapture } from '@pharma/contracts';
 export const TOPIC = 'pharma.domain-events.v1';
 const id = z.string().uuid();
 const definitions = {
+  'recall.activated': [
+    'recall-service',
+    'recall',
+    'TRANSACTION',
+    'OBSERVE',
+    'recalling',
+  ],
+  'recall.closed': [
+    'recall-service',
+    'recall',
+    'TRANSACTION',
+    'OBSERVE',
+    'recall_closing',
+  ],
+  'recall.cancelled': [
+    'recall-service',
+    'recall',
+    'TRANSACTION',
+    'OBSERVE',
+    'recall_cancelling',
+  ],
   'serialization.commissioned': [
     'serialization-service',
     'serialized-item',
@@ -112,13 +133,27 @@ const shipmentFacts = z
     correlationId: z.string().min(1).max(200).optional(),
   })
   .strict();
+const recallFacts = z
+  .object({
+    recallId: id,
+    recallNumber: z.string().min(1).max(100),
+    reason: z.string().min(1).max(4000),
+    severity: z.enum(['CLASS_I', 'CLASS_II', 'CLASS_III']),
+    title: z.string().min(1).max(200),
+  })
+  .strict();
 export const eventSchema = z
   .object({
     eventId: z.string().trim().min(1).max(200),
     eventType: z.enum(Object.keys(definitions) as [EventType, ...EventType[]]),
     eventVersion: z.literal(1),
     organizationId: id,
-    aggregateType: z.enum(['serialized-item', 'container', 'shipment']),
+    aggregateType: z.enum([
+      'serialized-item',
+      'container',
+      'shipment',
+      'recall',
+    ]),
     aggregateId: id,
     occurredAt: z.iso.datetime({ offset: true }),
     producer: z.string(),
@@ -143,7 +178,11 @@ export const eventSchema = z
           (e.eventType.includes('.item-')
             ? !p.serializedItemId || !!p.childContainerId
             : !p.childContainerId || !!p.serializedItemId))) ||
-      (d[2] === 'TRANSACTION' &&
+      (e.aggregateType === 'recall' &&
+        (!p.productId ||
+          p.metadata?.recallId !== e.aggregateId ||
+          !recallFacts.safeParse(p.metadata).success)) ||
+      (e.aggregateType === 'shipment' &&
         (p.metadata?.shipmentId !== e.aggregateId ||
           !p.facilityId ||
           !shipmentFacts.safeParse(p.metadata).success ||

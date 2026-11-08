@@ -543,3 +543,76 @@ th:first-child {
   background: #e7edf3;
   color: #475569;
 }
+
+.verification-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(300px, 1.2fr);
+  gap: 24px;
+  align-items: start;
+}
+.verification-result {
+  border: 1px solid #b9cbd6;
+  border-top: 6px solid #526977;
+  border-radius: 16px;
+  padding: 32px;
+  background: #f5f8fb;
+  overflow-wrap: anywhere;
+}
+.verification-status {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.verification-result dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+}
+.verification-result dd {
+  margin: 0;
+}
+.result-valid {
+  border-color: #208464;
+  background: #effaf5;
+  color: #125740;
+}
+.result-recalled {
+  border-color: #b32c3d;
+  background: #fff1f2;
+  color: #852032;
+}
+.result-quarantined {
+  border-color: #ad740d;
+  background: #fff8e6;
+  color: #785207;
+}
+.result-decommissioned {
+  border-color: #675486;
+  background: #f5f1fb;
+  color: #513870;
+}
+.result-unknown {
+  border-color: #576c7e;
+  background: #f3f6fa;
+}
+.verification-empty {
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.domain-form textarea {
+  width: 100%;
+  font: inherit;
+  padding: 12px;
+  border: 1px solid #b9cbd6;
+  border-radius: 8px;
+}
+@media (max-width: 760px) {
+  .verification-grid {
+    grid-template-columns: 1fr;
+  }
+  .verification-result {
+    padding: 22px;
+  }
+}

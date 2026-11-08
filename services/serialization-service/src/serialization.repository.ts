@@ -8,6 +8,11 @@ import type {
 @Injectable()
 export class SerializationRepository {
   constructor(private readonly prisma: PrismaService) {}
+  lookup(organizationId: string, gtinId: string, serialNumber: string) {
+    return this.prisma.serializedItem.findFirst({
+      where: { organizationId, gtinId, serialNumber },
+    });
+  }
   create(data: Prisma.SerializedItemUncheckedCreateInput) {
     return this.prisma.serializedItem.create({ data });
   }

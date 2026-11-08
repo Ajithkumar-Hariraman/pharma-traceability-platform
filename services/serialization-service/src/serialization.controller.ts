@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Param,
+  Query,
   Req,
   UseGuards,
   ParseUUIDPipe,
@@ -113,6 +114,13 @@ export class SerializationController {
 @UseGuards(InternalIdentityGuard)
 export class SerialReferenceController {
   constructor(private readonly service: SerializationService) {}
+  @Get('identity/:gtinId') lookup(
+    @Param('organizationId', ParseUUIDPipe) org: string,
+    @Param('gtinId', ParseUUIDPipe) gtinId: string,
+    @Query('serialNumber') serial: unknown,
+  ) {
+    return this.service.lookup(org, gtinId, serial);
+  }
   @Get(':serialId/validation') get(
     @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('serialId', ParseUUIDPipe) serialId: string,

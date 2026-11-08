@@ -1,3 +1,5 @@
+import { RecallController } from './recalls/recall.controller';
+import { RecallProxy } from './recalls/recall-proxy';
 import { ShipmentController } from './shipments/shipment.controller';
 import { ShipmentProxy } from './shipments/shipment-proxy';
 import { TraceController } from './trace/trace.controller';
@@ -56,6 +58,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     TraceController,
     AggregationController,
     ShipmentController,
+    RecallController,
   ],
   providers: [
     AuthHealthService,
@@ -67,6 +70,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     TraceProxy,
     AggregationProxy,
     ShipmentProxy,
+    RecallProxy,
     GatewayIdentityGuard,
   ],
 })

@@ -473,3 +473,16 @@ consumer rollback, isolation, retention, shutdown and a real Kafka end-to-end fl
 Phase 11 producer tests retain their mapping/isolation coverage and now assert
 transactional enqueue and successful commands during Kafka outages, replacing the
 superseded direct-publish failure expectation. Run `pnpm test` for all phases.
+
+## Phase 13 — Recall Management and Product Verification
+
+Recall Service (port 3009) owns its database and transactional Outbox. Organization
+navigation includes Recalls and Verify product. Authenticated verification checks
+GTIN + serial against owning services and active product/GTIN/batch recalls.
+See [Recall setup, API, decisions and limitations](services/recall-service/README.md).
+Set `RECALL_DB_PASSWORD` in Docker's environment and `RECALL_SERVICE_URL` in the
+Gateway, initialize the new database for existing volumes, then run
+`pnpm db:recall:generate`, `pnpm db:recall:deploy`, `pnpm build` and
+`pnpm test:phase13`. Recall requires Kafka; Traceability must use Kafka to receive
+its lifecycle history. There is no public verification endpoint or Redis rate
+limiter in this phase.

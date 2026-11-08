@@ -1,0 +1,63 @@
+generator client {
+ provider = "prisma-client-js"
+ output = "../generated/client"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum RecallStatus {
+ DRAFT
+ ACTIVE
+ CLOSED
+ CANCELLED
+}
+model Recall {
+ id String @id @default(uuid()) @db.Uuid
+ organizationId String @db.Uuid
+ recallNumber String @db.VarChar(100)
+ title String @db.VarChar(200)
+ reason String @db.VarChar(4000)
+ severity String @db.VarChar(50)
+ status RecallStatus @default(DRAFT)
+ productId String @db.Uuid
+ gtinId String? @db.Uuid
+ batchId String? @db.Uuid
+ scopeKey String @db.VarChar(150)
+ createdBy String @db.Uuid
+ initiatedAt DateTime? @db.Timestamptz(3)
+ closedAt DateTime? @db.Timestamptz(3)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@unique([organizationId, recallNumber])
+ @@index([organizationId, status, createdAt])
+ @@index([organizationId, productId, gtinId, batchId])
+}
+
+enum OutboxStatus {
+ PENDING
+ PUBLISHING
+ PUBLISHED
+ FAILED
+}
+model OutboxEvent {
+ id String @id @default(uuid()) @db.Uuid
+ eventId String @unique @db.VarChar(200)
+ eventType String @db.VarChar(100)
+ eventVersion Int
+ organizationId String @db.Uuid
+ aggregateType String @db.VarChar(50)
+ aggregateId String @db.Uuid
+ envelope Json @db.JsonB
+ status OutboxStatus @default(PENDING)
+ attempts Int @default(0)
+ availableAt DateTime @default(now()) @db.Timestamptz(3)
+ claimToken String? @db.Uuid
+ publishedAt DateTime? @db.Timestamptz(3)
+ lastError String? @db.VarChar(200)
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ updatedAt DateTime @updatedAt @db.Timestamptz(3)
+ @@index([status, availableAt, createdAt])
+ @@index([status, publishedAt])
+ @@index([organizationId, aggregateType, aggregateId])
+}

@@ -14,6 +14,12 @@ import { InternalIdentityGuard } from './authorization';
 @UseGuards(InternalIdentityGuard)
 export class ProductController {
   constructor(private readonly service: ProductService) {}
+  @Get('identity/:gtin') lookup(
+    @Param('organizationId', ParseUUIDPipe) org: string,
+    @Param('gtin') gtin: string,
+  ) {
+    return this.service.lookup(org, gtin);
+  }
   @Post('') create(
     @Param('organizationId', ParseUUIDPipe) org: string,
     @Body() body: unknown,

@@ -55,6 +55,16 @@ export class SerializationService {
     private readonly batches: BatchValidationClient,
     private readonly trace: TraceCaptureClient,
   ) {}
+  async lookup(organizationId: string, gtinId: string, input: unknown) {
+    const { serialNumber } = parse(single, { serialNumber: input });
+    const row = await this.repository.lookup(
+      organizationId,
+      gtinId,
+      serialNumber,
+    );
+    if (!row) throw new NotFoundException('Serialized item not found');
+    return row;
+  }
   async create(
     organizationId: string,
     batchId: string,
