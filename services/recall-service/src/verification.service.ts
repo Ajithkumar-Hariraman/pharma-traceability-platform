@@ -1,8 +1,10 @@
+import { VerificationCache } from './verification-cache';
 import {
   Injectable,
   NotFoundException,
   BadGatewayException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { z } from 'zod';
 import {
@@ -46,9 +48,46 @@ export class VerificationService {
   constructor(
     private readonly db: PrismaService,
     private readonly refs: ReferenceClient,
+    @Optional() private readonly cache?: VerificationCache,
   ) {}
   async verify(identity: Identity, body: unknown): Promise<VerificationResult> {
     const input = parse(verificationSchema, body);
+    const start = Date.now();
+    let key: string | undefined;
+    try {
+      key = await this.cache?.key(
+        identity.organizationId,
+        input.gtin,
+        input.serialNumber,
+      );
+      const hit = key
+        ? await this.cache?.read(key, input.gtin, input.serialNumber)
+        : undefined;
+      this.logger.log({
+        message: 'Verification cache lookup',
+        cacheHit: !!hit,
+        organizationId: identity.organizationId,
+        latencyMs: Date.now() - start,
+      });
+      if (hit) return hit;
+    } catch {
+      this.cache?.degraded(identity.organizationId);
+      key = undefined;
+    }
+    const result = await this.authoritative(identity, input);
+    if (key) {
+      try {
+        await this.cache?.write(key, result);
+      } catch {
+        this.cache?.degraded(identity.organizationId);
+      }
+    }
+    return result;
+  }
+  private async authoritative(
+    identity: Identity,
+    input: { gtin: string; serialNumber: string },
+  ): Promise<VerificationResult> {
     const base = { ...input, verifiedAt: new Date().toISOString() };
     const prefix = `/organizations/${identity.organizationId}`;
     let gtin, serial;

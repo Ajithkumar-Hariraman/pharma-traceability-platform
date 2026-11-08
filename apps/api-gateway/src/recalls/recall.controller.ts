@@ -97,6 +97,7 @@ export class RecallController {
       `/organizations/${org}/verification`,
       req.userId,
       body,
+      res,
     );
   }
 }

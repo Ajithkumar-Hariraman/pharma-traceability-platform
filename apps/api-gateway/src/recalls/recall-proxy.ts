@@ -59,7 +59,13 @@ export class RecallProxy {
     private readonly config: ConfigService,
     private readonly organizations: OrganizationProxy,
   ) {}
-  async forward(method: string, path: string, userId: string, body?: unknown) {
+  async forward(
+    method: string,
+    path: string,
+    userId: string,
+    body?: unknown,
+    responseHeaders?: { setHeader(name: string, value: string): unknown },
+  ) {
     const organizationId = path.split('/')[2]!;
     const access = (await this.organizations.forward(
       'GET',
@@ -117,9 +123,15 @@ export class RecallProxy {
       throw new ServiceUnavailableException('Recall Service unavailable');
     }
     if (!response.ok) {
+      if (response.status === 429) {
+        const retry = response.headers.get('retry-after');
+        if (retry && /^\d{1,5}$/.test(retry))
+          responseHeaders?.setHeader('Retry-After', retry);
+      }
       await response.body?.cancel();
       const messages: Record<number, string> = {
         400: 'Invalid recall or verification input',
+        429: 'Verification rate limit exceeded',
         401: 'Authentication required',
         403: 'Organization permission required',
         404: 'Recall or reference not found',

@@ -1,5 +1,18 @@
 name: pharma-traceability-platform
 services:
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
   kafka:
     image: apache/kafka:3.9.1
     ports:
@@ -87,5 +100,6 @@ services:
       retries: 20
     restart: unless-stopped
 volumes:
+  redis_data:
   kafka_data:
   auth_postgres_data:
