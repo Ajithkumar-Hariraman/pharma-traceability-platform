@@ -1,6 +1,6 @@
 # Pharma Traceability Platform
 
-Independent NestJS API Gateway (port 3000), NestJS Auth Service (port 3001), Organization Service (port 3002), and React/Vite application (port 5173). Shared packages provide configuration validation, Pino options, and health contracts. Use Node.js 24 and pnpm 10.17.0.
+Independent NestJS API Gateway (port 3000), NestJS Auth Service (port 3001), Organization Service (port 3002), and Next.js/React application (port 5173). Shared packages provide configuration validation, Pino options, and health contracts. Use Node.js 24 and pnpm 10.17.0.
 
 ## Local setup
 
@@ -10,7 +10,7 @@ Independent NestJS API Gateway (port 3000), NestJS Auth Service (port 3001), Org
 4. Run `pnpm infra:up`, `pnpm db:generate`, `pnpm db:deploy`, `pnpm db:organization:generate`, and `pnpm db:organization:deploy` to apply committed migrations. For an existing PostgreSQL volume, first run `docker compose --env-file infrastructure/docker/.env -f infrastructure/docker/compose.yaml exec -T postgres sh /docker-entrypoint-initdb.d/02-organization.sh` after `pnpm infra:up`.
 5. Run `pnpm dev`, or target `pnpm dev:gateway`, `pnpm dev:auth`, or `pnpm dev:web`. If another project occupies a port, override the backend's `PORT` and update the gateway URL accordingly.
 
-The browser calls only `/api/auth/*` through the gateway. Vite proxies `/api` to `API_GATEWAY_URL` (default `http://127.0.0.1:3000`); see `apps/web/.env.example`. Production hosting must serve the SPA with fallback to `index.html` for `/login`, `/register`, `/dashboard`, and `/organizations/*`, route `/api` to the gateway on the same HTTPS origin, and preserve the original Host header for origin checks. Auth Service stays private.
+The browser calls `/api/*` through the Next.js frontend transport to the NestJS API Gateway. `API_GATEWAY_URL` is server-only (default `http://127.0.0.1:3000`); see `apps/web/.env.example`. Run the Next.js Node server in production; static SPA hosting is no longer supported. Preserve the public Host header and HTTPS for Gateway origin checks and Secure refresh cookies. Auth Service stays private. See [Phase 17 frontend architecture and routes](docs/phase17-nextjs-frontend.md).
 
 ## Persistence boundary
 

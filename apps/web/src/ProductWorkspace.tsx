@@ -16,19 +16,20 @@ export function ProductWorkspace({
   organizationId,
   admin,
   canWriteBatches,
-  path,
+  productId,
+  gtinId,
+  showBatches,
   navigate,
 }: {
   organizationId: string;
   admin: boolean;
   canWriteBatches: boolean;
-  path: string;
+  productId?: string;
+  gtinId?: string;
+  showBatches?: boolean;
   navigate: (path: string) => void;
 }) {
   const base = `/organizations/${organizationId}/products`;
-  const parts = path.split('/');
-  const productId = parts[4];
-  const gtinId = parts[6];
   const [rows, setRows] = useState<Product[]>([]);
   const [product, setProduct] = useState<Product | null>(null);
   const [gtins, setGtins] = useState<GTIN[]>([]);
@@ -153,7 +154,7 @@ export function ProductWorkspace({
       </a>
     );
   }
-  if (parts[7] === 'batches' && productId && gtinId)
+  if (showBatches && productId && gtinId)
     return (
       <BatchWorkspace
         organizationId={organizationId}

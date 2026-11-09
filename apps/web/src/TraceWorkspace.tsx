@@ -1,3 +1,4 @@
+import { Timeline, Pagination, EventReferences } from './ui';
 import { useEffect, useState } from 'react';
 import {
   traceEventTypes,
@@ -160,72 +161,55 @@ export function TraceWorkspace({
           {!data.items.length ? (
             <p>No trace events match these filters.</p>
           ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Event time (UTC)</th>
-                    <th>Type</th>
-                    <th>Action</th>
-                    <th>Business step</th>
-                    <th>Disposition</th>
-                    <th>Detail</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((event) => (
-                    <tr key={event.id}>
-                      <td>{event.eventTime}</td>
-                      <td>{event.eventType}</td>
-                      <td>{event.action}</td>
-                      <td>{event.businessStep ?? '—'}</td>
-                      <td>{event.disposition ?? '—'}</td>
-                      <td>
-                        <button onClick={() => void detail(event)}>
-                          View event
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Timeline
+              events={data.items}
+              organizationId={organizationId}
+              onDetail={(event) => void detail(event)}
+            />
           )}
-          <div className="actions">
-            <button disabled={page === 1} onClick={() => setPage((v) => v - 1)}>
-              Previous
-            </button>
-            <span>Page {page}</span>
-            <button
-              disabled={page * data.pageSize >= data.total}
-              onClick={() => setPage((v) => v + 1)}
-            >
-              Next
-            </button>
-          </div>
+          <Pagination
+            page={page}
+            pageSize={data.pageSize}
+            total={data.total}
+            onChange={setPage}
+          />
         </>
       )}
       {selected && (
         <section className="welcome-panel">
           <h2>Event detail</h2>
           <button onClick={() => setSelected(null)}>Close</button>
+          <EventReferences event={selected} organizationId={organizationId} />
           <dl>
-            {Object.entries(selected)
-              .filter(([key]) => key !== 'metadata')
-              .map(([key, value]) => (
-                <div key={key}>
-                  <dt>{key}</dt>
-                  <dd>{String(value ?? '—')}</dd>
-                </div>
-              ))}
+            <dt>Action</dt>
+            <dd>{selected.action}</dd>
+            <dt>Business step</dt>
+            <dd>{selected.businessStep ?? 'Not recorded'}</dd>
+            <dt>Result / disposition</dt>
+            <dd>{selected.disposition ?? 'Not recorded'}</dd>
+            <dt>Domain</dt>
+            <dd>{selected.eventType}</dd>
+            <dt>Event reference</dt>
+            <dd>{selected.eventId}</dd>
+            <dt>Recorded</dt>
+            <dd>{selected.recordTime}</dd>
           </dl>
           {selected.metadata && (
-            <>
-              <h3>Metadata</h3>
-              <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                {JSON.stringify(selected.metadata, null, 2)}
+            <details>
+              <summary>Technical details (approved business metadata)</summary>
+              <pre className="technical-details">
+                {JSON.stringify(
+                  selected.metadata,
+                  (key, value) =>
+                    /token|password|secret|credential|authorization|cookie|signed.?url/i.test(
+                      key,
+                    )
+                      ? '[redacted]'
+                      : value,
+                  2,
+                )}
               </pre>
-            </>
+            </details>
           )}
         </section>
       )}

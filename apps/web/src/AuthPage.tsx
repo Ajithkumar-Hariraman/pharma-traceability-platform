@@ -1,181 +1,70 @@
+'use client';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  credentialsSchema,
-  currentUser,
-  login,
-  logout,
-  refreshSession,
-  register,
-  type Credentials,
-  type User,
-} from './auth';
-import './styles.css';
-import { OrganizationWorkspace } from './OrganizationWorkspace';
-function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(
-    window.location.pathname === '/register' ? 'register' : 'login',
-  );
+import { credentialsSchema, login, register, type Credentials } from './auth';
+import { useSession } from './SessionProvider';
+export function AuthPage({ page }: { page: 'login' | 'register' }) {
+  const router = useRouter();
+  const { user, loading, error: sessionError, retry, setUser } = useSession();
+  useEffect(() => {
+    if (user) router.replace('/organizations');
+  }, [user, router]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [busy, setBusy] = useState(false);
   const form = useForm<Credentials>({
     resolver: zodResolver(credentialsSchema),
     defaultValues: { email: '', password: '' },
   });
   function navigate(next: string) {
-    window.history.replaceState({}, '', `/${next}`);
-    setPage(next);
+    router.push('/' + next);
   }
-  useEffect(() => {
-    void refreshSession()
-      .then(currentUser)
-      .then((value) => {
-        setUser(value);
-        if (!window.location.pathname.startsWith('/organizations'))
-          window.history.replaceState({}, '', '/dashboard');
-      })
-      .catch((failure: unknown) => {
-        if (
-          failure instanceof Error &&
-          'status' in failure &&
-          failure.status !== 401
-        )
-          setError(failure.message);
-        if (window.location.pathname !== '/register') {
-          window.history.replaceState({}, '', '/login');
-          setPage('login');
-        }
-      })
-      .finally(() => setLoading(false));
-    const onPop = () =>
-      setPage(window.location.pathname === '/register' ? 'register' : 'login');
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
-  // Revalidate periodically so expired access tokens refresh without persisting tokens in storage.
-  useEffect(() => {
-    if (!user) return;
-    const timer = window.setInterval(() => {
-      void currentUser()
-        .then(setUser)
-        .catch((failure: unknown) => {
-          if (
-            failure instanceof Error &&
-            'status' in failure &&
-            failure.status === 401
-          ) {
-            setUser(null);
-            navigate('login');
-            setError('Your session has expired. Please sign in again');
-          }
-        });
-    }, 60000);
-    return () => window.clearInterval(timer);
-  }, [user]);
   const submit = form.handleSubmit(async (values) => {
     setError('');
     setNotice('');
     try {
       if (page === 'register') {
         await register(values);
-        form.reset({ email: values.email, password: '' });
-        navigate('login');
+        form.reset();
         setNotice('Account created. Sign in to your workspace.');
+        navigate('login');
       } else {
         setUser(await login(values));
         form.reset();
-        navigate('dashboard');
+        navigate('organizations');
       }
     } catch (failure) {
       setError(
         failure instanceof Error
           ? failure.message
-          : 'Unable to connect. Please try again',
+          : 'Unable to sign in. Please retry.',
       );
     }
   });
-  async function signOut() {
-    setBusy(true);
-    setError('');
-    try {
-      await logout();
-      setUser(null);
-      navigate('login');
-      setNotice('You have been signed out.');
-    } catch (failure) {
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : 'Unable to sign out. Please try again',
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
   if (loading)
     return (
       <main className="loading" role="status">
-        <span className="mark">P</span>
-        <p>Verifying your session…</p>
+        Checking session…
       </main>
     );
-  if (user)
+  if (sessionError)
     return (
-      <div className="workspace">
-        <aside>
-          <a className="brand" href="/dashboard">
-            <span className="mark">P</span>
-            <span>
-              Pharma<span className="brand-sub">TRACEABILITY PLATFORM</span>
-            </span>
-          </a>
-          <p className="nav-label">WORKSPACE</p>
-          <a className="nav-item" href="/organizations" aria-current="page">
-            Organizations
-          </a>
-          <div className="aside-foot">
-            Connected care.
-            <br />
-            Trusted supply.
-          </div>
-        </aside>
-        <div className="workspace-body">
-          <header>
-            <span>Organization workspace</span>
-            <div className="account">
-              <span>{user.email}</span>
-              <button
-                className="secondary"
-                disabled={busy}
-                onClick={() => void signOut()}
-              >
-                {busy ? 'Signing out…' : 'Sign out'}
-              </button>
-            </div>
-          </header>
-          {error && (
-            <p className="alert error" role="alert">
-              {error}
-            </p>
-          )}
-          <OrganizationWorkspace userId={user.id} />
-        </div>
-      </div>
+      <main className="dashboard">
+        <p role="alert">{sessionError}</p>
+        <button onClick={retry}>Retry</button>
+      </main>
     );
   return (
     <main className="auth-layout">
       <section className="intro">
-        <a className="brand" href="/login">
+        <Link className="brand" href="/login">
           <span className="mark">P</span>
           <span>
             Pharma<span className="brand-sub">TRACEABILITY PLATFORM</span>
           </span>
-        </a>
+        </Link>
         <div>
           <p className="eyebrow">CONFIDENCE AT EVERY STEP</p>
           <h1>
@@ -270,7 +159,7 @@ function App() {
             {page === 'register'
               ? 'Already have an account?'
               : 'New to Pharma?'}{' '}
-            <a
+            <Link
               href={page === 'register' ? '/login' : '/register'}
               onClick={(event) => {
                 event.preventDefault();
@@ -281,7 +170,7 @@ function App() {
               }}
             >
               {page === 'register' ? 'Sign in' : 'Create an account'}
-            </a>
+            </Link>
           </p>
           <p className="security-note">Secure access · Protected sessions</p>
         </div>
@@ -289,6 +178,3 @@ function App() {
     </main>
   );
 }
-const root = document.getElementById('root');
-if (!root) throw new Error('Root element is missing');
-createRoot(root).render(<App />);

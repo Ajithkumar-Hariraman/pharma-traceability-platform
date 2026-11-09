@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { Lifecycle } from './ui';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,6 +40,7 @@ export function SerialWorkspace({
   navigate: (path: string) => void;
 }) {
   const base = `/organizations/${organizationId}`;
+  const [availableBatches, setAvailableBatches] = useState<Batch[]>([]);
   const [parent, setParent] = useState<AggregateContainer | null>(null);
   const [serial, setSerial] = useState<SerializedItem | null>(null);
   const [batch, setBatch] = useState<Batch | null>(null);
@@ -83,7 +86,13 @@ export function SerialWorkspace({
           if (active) setParent(parentContainer);
         }
         const ownerBatch = item?.batchId ?? batchId;
-        if (!ownerBatch) throw new Error('Select a batch to manage serials');
+        if (!ownerBatch) {
+          const batches = await authenticatedRequest<Batch[]>(
+            `${base}/batches`,
+          );
+          if (active) setAvailableBatches(batches);
+          return;
+        }
         const lot = await authenticatedRequest<Batch>(
           `${base}/batches/${ownerBatch}`,
         );
@@ -212,6 +221,26 @@ export function SerialWorkspace({
             <span>/</span>
             {link(`${base}/batches/${batch.id}/serials`, 'Serials')}
           </>
+        )}
+        {!serialId && !batchId && (
+          <section className="welcome-panel">
+            <h2>Choose a batch</h2>
+            <p>Serials are listed and created per batch.</p>
+            {availableBatches.length ? (
+              <ul>
+                {availableBatches.map((lot) => (
+                  <li key={lot.id}>
+                    <Link href={`${base}/batches/${lot.id}/serials`}>
+                      {lot.lotNumber}
+                    </Link>{' '}
+                    · {lot.status}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No batches available. Create a product and batch first.</p>
+            )}
+          </section>
         )}
         {serial && (
           <>
@@ -348,6 +377,26 @@ export function SerialWorkspace({
           </div>
         </form>
       )}
+      {!serialId && !batchId && (
+        <section className="welcome-panel">
+          <h2>Choose a batch</h2>
+          <p>Serials are listed and created per batch.</p>
+          {availableBatches.length ? (
+            <ul>
+              {availableBatches.map((lot) => (
+                <li key={lot.id}>
+                  <Link href={`${base}/batches/${lot.id}/serials`}>
+                    {lot.lotNumber}
+                  </Link>{' '}
+                  · {lot.status}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No batches available. Create a product and batch first.</p>
+          )}
+        </section>
+      )}
       {serial && (
         <section className="welcome-panel">
           <div className="section-heading">
@@ -359,6 +408,22 @@ export function SerialWorkspace({
             >
               {label(serial.status)}
             </span>
+          </div>
+          <Lifecycle
+            states={[
+              'CREATED',
+              'COMMISSIONED',
+              'QUARANTINED',
+              'DECOMMISSIONED',
+            ]}
+            current={serial.status}
+          />
+          <div className="actions">
+            {product && (
+              <Link href={`${base}/products/${product.id}`}>Product</Link>
+            )}
+            {batch && <Link href={`${base}/batches/${batch.id}`}>Batch</Link>}
+            <Link href={`${base}/verification`}>Verify pack</Link>
           </div>
           <p>
             Parent container:{' '}

@@ -51,7 +51,9 @@
     "test:phase13": "node --test tests/phase13.test.cjs",
     "test:phase14": "node --test tests/phase14.test.cjs",
     "test:phase16": "node --test --test-isolation=none tests/phase16.test.cjs",
-    "test:phase16:smoke": "node tests/phase16-smoke.cjs"
+    "test:phase16:smoke": "node tests/phase16-smoke.cjs",
+    "test:phase17": "node --test --test-isolation=none tests/phase17.test.cjs",
+    "test:phase17:smoke": "node tests/phase17-smoke.cjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
