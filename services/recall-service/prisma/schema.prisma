@@ -61,3 +61,24 @@ model OutboxEvent {
  @@index([status, publishedAt])
  @@index([organizationId, aggregateType, aggregateId])
 }
+
+model Document {
+ id String @id @db.Uuid
+ organizationId String @db.Uuid
+ domainType String @db.VarChar(16)
+ domainId String @db.Uuid
+ category String @db.VarChar(40)
+ originalFileName String @db.VarChar(180)
+ objectKey String @unique @db.VarChar(512)
+ contentType String @db.VarChar(100)
+ size Int
+ checksum String @db.VarChar(44)
+ status String @default("PENDING") @db.VarChar(16)
+ uploadedBy String @db.Uuid
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ expiresAt DateTime @db.Timestamptz(3)
+ finalizedAt DateTime? @db.Timestamptz(3)
+ deletedAt DateTime? @db.Timestamptz(3)
+ @@index([organizationId, domainId, status])
+ @@index([status, expiresAt])
+}

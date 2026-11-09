@@ -69,6 +69,7 @@ export class InternalIdentityGuard implements CanActivate {
       throw new UnauthorizedException('Invalid internal identity');
     if (
       request.method !== 'GET' &&
+      !(request.originalUrl.includes('/documents') && role !== 'VIEWER') &&
       !canWriteOrganizationResource(role, 'product')
     )
       throw new ForbiddenException(

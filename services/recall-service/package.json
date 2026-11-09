@@ -31,7 +31,8 @@
     "@pharma/messaging": "workspace:*",
     "@pharma/redis": "workspace:*",
     "@pharma/dynamodb": "workspace:*",
-    "@aws-sdk/client-dynamodb": "^3.0.0"
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@pharma/object-storage": "workspace:*"
   },
   "devDependencies": {
     "prisma": "6.19.0"

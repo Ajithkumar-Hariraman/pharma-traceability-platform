@@ -1,3 +1,5 @@
+import { DocumentController } from './documents/document.controller';
+import { DocumentProxy } from './documents/document-proxy';
 import { RecallController } from './recalls/recall.controller';
 import { RecallProxy } from './recalls/recall-proxy';
 import { ShipmentController } from './shipments/shipment.controller';
@@ -48,6 +50,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     }),
   ],
   controllers: [
+    DocumentController,
     HealthController,
     AuthHealthController,
     AuthController,
@@ -61,6 +64,7 @@ import { AuthHealthController } from './auth/auth-health.controller';
     RecallController,
   ],
   providers: [
+    DocumentProxy,
     AuthHealthService,
     AuthProxyService,
     OrganizationProxy,

@@ -1,3 +1,5 @@
+import { DocumentController } from './document.controller';
+import { validateStorageEnvironment } from '@pharma/config';
 import { MessagingModule } from '@pharma/messaging';
 import { ReferenceClient } from './reference.client';
 import { TraceCaptureClient } from './trace-capture.client';
@@ -16,7 +18,10 @@ import { HealthController } from './health.controller';
     MessagingModule.forOutbox(),
     ConfigModule.forRoot({
       isGlobal: true,
-      validate: validateShipmentEnvironment,
+      validate: (input) => ({
+        ...validateShipmentEnvironment(input),
+        storage: validateStorageEnvironment(input),
+      }),
     }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
@@ -28,7 +33,7 @@ import { HealthController } from './health.controller';
       }),
     }),
   ],
-  controllers: [ShipmentController, HealthController],
+  controllers: [DocumentController, ShipmentController, HealthController],
   providers: [
     PrismaService,
     ShipmentService,

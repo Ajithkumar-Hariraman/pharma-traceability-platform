@@ -70,6 +70,7 @@ export class InternalIdentityGuard implements CanActivate {
       throw new UnauthorizedException('Invalid internal identity');
     if (
       request.method !== 'GET' &&
+      !(request.originalUrl.includes('/documents') && role !== 'VIEWER') &&
       !/^\/organizations\/[a-f0-9-]+\/verification$/.test(
         request.originalUrl,
       ) &&

@@ -711,3 +711,77 @@ export function validateDynamoEnvironment(input: Record<string, unknown>) {
     VERIFICATION_PROJECTION_ENABLED: enabled === true || enabled === 'true',
   };
 }
+
+export function validateStorageEnvironment(input: Record<string, unknown>) {
+  const number = (key: string, fallback: number, max: number) => {
+    const value = Number(input[key] ?? fallback);
+    if (!Number.isInteger(value) || value < 1 || value > max)
+      throw new Error(`Invalid ${key}`);
+    return value;
+  };
+  const bucket = String(input.S3_BUCKET ?? 'pharma-documents');
+  if (
+    !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket) ||
+    bucket.includes('..')
+  )
+    throw new Error('Invalid S3_BUCKET');
+  const region = String(input.AWS_REGION ?? 'us-east-1');
+  if (!/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(region))
+    throw new Error('Invalid AWS_REGION');
+  const endpoint = input.S3_ENDPOINT ? String(input.S3_ENDPOINT) : undefined;
+  if (endpoint) {
+    const url = new URL(endpoint);
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== '/'
+    )
+      throw new Error('Invalid S3_ENDPOINT');
+  }
+  const pathStyle = input.S3_FORCE_PATH_STYLE ?? 'false';
+  if (![true, false, 'true', 'false'].includes(pathStyle as string))
+    throw new Error('Invalid S3_FORCE_PATH_STYLE');
+  const allowed = String(
+    input.DOCUMENT_ALLOWED_CONTENT_TYPES ??
+      'application/pdf,image/png,image/jpeg,text/csv',
+  ).split(',');
+  if (
+    !allowed.length ||
+    allowed.some(
+      (x) =>
+        !['application/pdf', 'image/png', 'image/jpeg', 'text/csv'].includes(x),
+    )
+  )
+    throw new Error('Invalid DOCUMENT_ALLOWED_CONTENT_TYPES');
+  if (!!input.AWS_ACCESS_KEY_ID !== !!input.AWS_SECRET_ACCESS_KEY)
+    throw new Error('Incomplete AWS credentials');
+  if (
+    number('DOCUMENT_PENDING_TTL_SECONDS', 3600, 86400) <
+    number('S3_UPLOAD_EXPIRY_SECONDS', 300, 900) + 60
+  )
+    throw new Error(
+      'DOCUMENT_PENDING_TTL_SECONDS must exceed upload expiry by 60 seconds',
+    );
+  return {
+    S3_BUCKET: bucket,
+    AWS_REGION: region,
+    S3_ENDPOINT: endpoint,
+    S3_FORCE_PATH_STYLE: pathStyle === true || pathStyle === 'true',
+    DOCUMENT_ALLOWED_CONTENT_TYPES: allowed,
+    DOCUMENT_MAX_FILE_SIZE: number(
+      'DOCUMENT_MAX_FILE_SIZE',
+      10485760,
+      104857600,
+    ),
+    S3_UPLOAD_EXPIRY_SECONDS: number('S3_UPLOAD_EXPIRY_SECONDS', 300, 900),
+    S3_DOWNLOAD_EXPIRY_SECONDS: number('S3_DOWNLOAD_EXPIRY_SECONDS', 120, 900),
+    DOCUMENT_PENDING_TTL_SECONDS: number(
+      'DOCUMENT_PENDING_TTL_SECONDS',
+      3600,
+      86400,
+    ),
+  };
+}

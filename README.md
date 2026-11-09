@@ -494,3 +494,7 @@ Compose includes persistent local Redis; Recall uses validated cache-aside respo
 short TTLs, generation invalidation from Kafka, and a fail-open per-user rate limit.
 PostgreSQL remains authoritative. See [Redis configuration, consistency, failure
 semantics and tests](services/recall-service/README.md#phase-14-optional-redis-acceleration).
+
+### Phase 16 — document and evidence storage
+
+Product, Recall and Shipment detail screens support private S3-compatible attachments. Metadata stays in each owning PostgreSQL database; browser uploads/downloads use authorized short-lived presigned URLs. See [setup, API, security and cleanup details](docs/phase16-document-storage.md).

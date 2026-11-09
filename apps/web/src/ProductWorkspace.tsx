@@ -1,3 +1,4 @@
+import { DocumentAttachments } from './DocumentAttachments';
 import { BatchWorkspace } from './BatchWorkspace';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -165,6 +166,14 @@ export function ProductWorkspace({
   if (loading) return <p role="status">Loading products…</p>;
   return (
     <section>
+      {product && !gtinId && (
+        <DocumentAttachments
+          base={`${base}/${product.id}`}
+          domain="PRODUCT"
+          write={admin || canWriteBatches}
+          admin={admin}
+        />
+      )}
       <nav className="breadcrumbs" aria-label="Product breadcrumb">
         {link(base, 'Products')}
         {product && (
