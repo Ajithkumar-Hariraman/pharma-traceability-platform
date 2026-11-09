@@ -5,3 +5,6 @@ pnpm-lock.yaml
 services/organization-service/generated
 
 **/generated/
+
+**/.next/
+**/next-env.d.ts

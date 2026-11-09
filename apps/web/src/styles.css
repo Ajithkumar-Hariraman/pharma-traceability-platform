@@ -616,3 +616,226 @@ th:first-child {
     padding: 22px;
   }
 }
+
+/* Operational workspace additions */
+select,
+textarea {
+  font: inherit;
+}
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #08766b;
+  outline-offset: 3px;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  background: white;
+  padding: 12px;
+}
+.skip-link:focus {
+  top: 12px;
+}
+.sidebar {
+  overflow-y: auto;
+}
+.sidebar .nav-item {
+  display: block;
+  margin-block: 4px;
+}
+.sidebar .nav-item:not([aria-current]) {
+  background: transparent;
+}
+.sidebar .nav-label {
+  display: block;
+  margin-top: 28px;
+}
+.nav-item[aria-current='page'] {
+  background: #d9efe9;
+  color: #123c36;
+  font-weight: 700;
+  border-left: 3px solid #08766b;
+}
+.mobile-menu {
+  display: none;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px;
+  margin-block: 24px;
+}
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  background: white;
+  border: 1px solid #d8e3e5;
+  border-radius: 12px;
+  color: #162c36;
+}
+.summary-card strong {
+  font-size: 30px;
+  overflow-wrap: anywhere;
+}
+.summary-card small {
+  color: #52656b;
+}
+.lifecycle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  list-style: none;
+  padding: 20px 0;
+}
+.lifecycle li {
+  padding: 12px;
+  border: 1px solid #d8e3e5;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+}
+.lifecycle li[aria-current] {
+  border: 2px solid #08766b;
+  background: #edf7f4;
+}
+.status-pill[data-status='ACTIVE'],
+.status-pill[data-status='COMMISSIONED'],
+.status-pill[data-status='RECEIVED'] {
+  background: #d9efe3;
+  color: #14532d;
+}
+.status-pill[data-status='QUARANTINED'],
+.status-pill[data-status='READY'] {
+  background: #fff0c2;
+  color: #6c4200;
+}
+.status-pill[data-status='DECOMMISSIONED'],
+.status-pill[data-status='CANCELLED'] {
+  background: #e8ebed;
+  color: #34434a;
+}
+.active-recall {
+  border: 2px solid #b42335;
+  background: #fff7f7;
+}
+.active-recall > .status-pill {
+  background: #b42335;
+  color: white;
+}
+.timeline {
+  list-style: none;
+  padding: 0 0 0 24px;
+  border-left: 2px solid #b8d6cf;
+  margin-left: 8px;
+}
+.timeline > li {
+  position: relative;
+  padding: 4px 0 28px 12px;
+}
+.timeline > li::before {
+  content: '';
+  position: absolute;
+  left: -31px;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #08766b;
+  border: 2px solid #f5f8f9;
+}
+.timeline time {
+  color: #52656b;
+  font-size: 13px;
+}
+.timeline h3 {
+  text-transform: capitalize;
+  margin-bottom: 8px;
+}
+.event-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.technical-details {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #edf2f3;
+  padding: 18px;
+}
+.hierarchy,
+.hierarchy ul {
+  list-style: none;
+  border-left: 2px solid #b8d6cf;
+  padding-left: 24px;
+}
+.hierarchy li {
+  padding: 12px 0;
+  overflow-wrap: anywhere;
+}
+.public-verify {
+  max-width: 1180px;
+  margin: auto;
+}
+.public-verify > .brand {
+  margin-bottom: 48px;
+}
+.card {
+  background: white;
+  border: 1px solid #d8e3e5;
+  border-radius: 10px;
+  padding: 20px;
+  margin-block: 20px;
+}
+.card li {
+  padding-block: 12px;
+  overflow-wrap: anywhere;
+}
+summary {
+  cursor: pointer;
+  padding: 12px 0;
+}
+@media (max-width: 800px) {
+  .mobile-menu {
+    display: inline-block;
+  }
+  .workspace .sidebar {
+    display: none;
+  }
+  .workspace .sidebar.is-open {
+    display: block;
+    position: static;
+    width: 100%;
+  }
+  .workspace {
+    display: flex;
+    flex-direction: column;
+  }
+  .workspace-body {
+    min-width: 0;
+  }
+  .account {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .account > span {
+    max-width: 140px;
+    overflow-wrap: anywhere;
+  }
+  .workspace header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .lifecycle {
+    gap: 6px;
+  }
+  .dashboard {
+    padding: 24px 16px;
+  }
+}

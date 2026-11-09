@@ -19,3 +19,5 @@ services/traceability-service/generated/
 services/aggregation-service/generated/
 services/shipment-service/generated/
 services/recall-service/generated/
+
+**/.next/

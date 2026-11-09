@@ -235,7 +235,7 @@ export function AggregationWorkspace({
         <>
           <section className="welcome-panel">
             <h2>Hierarchy</h2>
-            <ul>{branch(tree)}</ul>
+            <ul className="hierarchy">{branch(tree)}</ul>
             {!tree.items.length && !tree.children.length && (
               <p>This container is empty.</p>
             )}

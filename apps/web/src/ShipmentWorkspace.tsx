@@ -1,3 +1,4 @@
+import { Lifecycle, StatusBadge } from './ui';
 import { DocumentAttachments } from './DocumentAttachments';
 import { useEffect, useState } from 'react';
 import {
@@ -225,7 +226,9 @@ export function ShipmentWorkspace({
                   </td>
                   <td>{facility(row.sourceFacilityId)}</td>
                   <td>{facility(row.destinationFacilityId)}</td>
-                  <td>{row.status}</td>
+                  <td>
+                    <StatusBadge status={row.status} />
+                  </td>
                   <td>{new Date(row.createdAt).toLocaleString()}</td>
                   <td>{row.dispatchedAt ?? '—'}</td>
                   <td>{row.receivedAt ?? '—'}</td>
@@ -247,7 +250,17 @@ export function ShipmentWorkspace({
       )}
       {detail && (
         <>
-          <p>Status: {detail.status}</p>
+          <Lifecycle
+            states={[
+              'CREATED',
+              'READY',
+              'DISPATCHED',
+              'IN_TRANSIT',
+              'RECEIVED',
+              ...(detail.status === 'CANCELLED' ? ['CANCELLED'] : []),
+            ]}
+            current={detail.status}
+          />
           <DocumentAttachments
             base={`${base}/${detail.id}`}
             domain="SHIPMENT"

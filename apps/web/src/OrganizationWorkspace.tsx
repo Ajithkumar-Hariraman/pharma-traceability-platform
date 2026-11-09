@@ -1,3 +1,6 @@
+'use client';
+import { useParams, useRouter } from 'next/navigation';
+import { OrganizationDashboard } from './OrganizationDashboard';
 import { RecallWorkspace } from './RecallWorkspace';
 import { VerificationWorkspace } from './VerificationWorkspace';
 import { ShipmentWorkspace } from './ShipmentWorkspace';
@@ -19,8 +22,27 @@ import {
   type FacilityForm,
 } from './organization-forms';
 const label = (value: string) => value.toLowerCase().replaceAll('_', ' ');
-export function OrganizationWorkspace({ userId }: { userId: string }) {
-  const [path, setPath] = useState(window.location.pathname);
+export function OrganizationWorkspace({
+  userId,
+  section,
+}: {
+  userId: string;
+  section?: string;
+}) {
+  const params = useParams<{
+    organizationId?: string;
+    facilityId?: string;
+    productId?: string;
+    gtinId?: string;
+    batchId?: string;
+    serialId?: string;
+    aggregateId?: string;
+    shipmentId?: string;
+    recallId?: string;
+    scope?: string;
+    referenceId?: string;
+  }>();
+  const router = useRouter();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -41,27 +63,20 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
     resolver: zodResolver(facilitySchema),
     defaultValues: { name: '', type: 'MANUFACTURER', gln: '' },
   });
-  const parts = path.split('/').filter(Boolean);
-  const organizationId = parts[0] === 'organizations' ? parts[1] : undefined;
-  const facilityId = parts[2] === 'facilities' ? parts[3] : undefined;
+  const organizationId = params.organizationId;
+  const facilityId = params.facilityId;
   const admin = memberships.some(
     (member) => member.userId === userId && member.role === 'ORG_ADMIN',
   );
   const role = memberships.find((member) => member.userId === userId)?.role;
   const navigate = (next: string) => {
-    window.history.pushState({}, '', next);
-    setPath(next);
+    router.push(next);
     setCreatingOrg(false);
     setCreatingFacility(false);
     setEditingOrg(false);
     setEditingFacility(false);
     setNotice('');
   };
-  useEffect(() => {
-    const pop = () => setPath(window.location.pathname);
-    window.addEventListener('popstate', pop);
-    return () => window.removeEventListener('popstate', pop);
-  }, []);
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -358,133 +373,64 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
         </>
       ) : organization ? (
         <>
-          <nav className="actions" aria-label="Organization navigation">
-            {['recalls', 'verification'].map((section) => (
-              <a
-                key={section}
-                href={`/organizations/${organization.id}/${section}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(`/organizations/${organization.id}/${section}`);
-                }}
-              >
-                {section === 'recalls' ? 'Recalls' : 'Verify product'}
-              </a>
-            ))}
-            <a
-              href={`/organizations/${organization.id}`}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(`/organizations/${organization.id}`);
-              }}
-            >
-              Facilities & memberships
-            </a>
-
-            <a
-              href={`/organizations/${organization.id}/products`}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(`/organizations/${organization.id}/products`);
-              }}
-            >
-              Products
-            </a>
-
-            <a
-              href={`/organizations/${organization.id}/batches`}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(`/organizations/${organization.id}/batches`);
-              }}
-            >
-              Batches
-            </a>
-
-            <a
-              href={`/organizations/${organization.id}/trace`}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(`/organizations/${organization.id}/trace`);
-              }}
-            >
-              Traceability
-            </a>
-
-            <a
-              href={`/organizations/${organization.id}/aggregates`}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(`/organizations/${organization.id}/aggregates`);
-              }}
-            >
-              Aggregation
-            </a>
-            <a
-              href={`/organizations/${organization.id}/shipments`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(`/organizations/${organization.id}/shipments`);
-              }}
-            >
-              Shipments
-            </a>
-          </nav>
-
-          {parts[2] === 'recalls' ? (
-            <RecallWorkspace
-              key={path}
+          {!section ? (
+            <OrganizationDashboard
               organizationId={organization.id}
-              recallId={parts[3]}
+              name={organization.legalName}
+            />
+          ) : section === 'recalls' ? (
+            <RecallWorkspace
+              key={section}
+              organizationId={organization.id}
+              recallId={params.recallId}
               role={role}
               navigate={navigate}
             />
-          ) : parts[2] === 'verification' ? (
+          ) : section === 'verification' ? (
             <VerificationWorkspace
               key={organization.id}
               organizationId={organization.id}
             />
-          ) : parts[2] === 'shipments' ? (
+          ) : section === 'shipments' ? (
             <ShipmentWorkspace
-              key={path}
+              key={section}
               organizationId={organization.id}
-              shipmentId={parts[3]}
+              shipmentId={params.shipmentId}
               role={role}
               navigate={navigate}
             />
-          ) : parts[2] === 'trace' ? (
+          ) : section === 'trace' ? (
             <TraceWorkspace
-              key={path}
+              key={section}
               organizationId={organization.id}
-              scope={parts[3]}
-              referenceId={parts[4]}
+              scope={params.scope}
+              referenceId={params.referenceId}
             />
-          ) : parts[2] === 'aggregates' ? (
+          ) : section === 'aggregates' ? (
             <AggregationWorkspace
               organizationId={organization.id}
-              aggregateId={parts[3]}
+              aggregateId={params.aggregateId}
               role={role}
               navigate={navigate}
             />
-          ) : parts[2] === 'serials' ||
-            (parts[2] === 'batches' && parts[4] === 'serials') ? (
+          ) : section === 'serials' || section === 'batch-serials' ? (
             <SerialWorkspace
               key={organization.id}
               organizationId={organization.id}
               role={role}
-              serialId={parts[2] === 'serials' ? parts[3] : undefined}
-              batchId={parts[2] === 'batches' ? parts[3] : undefined}
+              serialId={params.serialId}
+              batchId={params.batchId}
               navigate={navigate}
             />
-          ) : parts[2] === 'batches' ? (
+          ) : section === 'batches' ? (
             <BatchWorkspace
               key={organization.id}
               organizationId={organization.id}
               canWrite={!!role && canWriteOrganizationResource(role, 'batch')}
-              batchId={parts[3]}
+              batchId={params.batchId}
               navigate={navigate}
             />
-          ) : parts[2] === 'products' ? (
+          ) : section === 'products' || section === 'gtin-batches' ? (
             <ProductWorkspace
               key={organization.id}
               organizationId={organization.id}
@@ -492,7 +438,9 @@ export function OrganizationWorkspace({ userId }: { userId: string }) {
               canWriteBatches={
                 !!role && canWriteOrganizationResource(role, 'batch')
               }
-              path={path}
+              productId={params.productId}
+              gtinId={params.gtinId}
+              showBatches={section === 'gtin-batches'}
               navigate={navigate}
             />
           ) : (

@@ -45,6 +45,18 @@ export async function refreshSession() {
       .then((data) => {
         accessToken = data.accessToken ?? null;
       })
+      .catch((error: unknown) => {
+        if (
+          error instanceof Error &&
+          'status' in error &&
+          error.status === 401
+        ) {
+          accessToken = null;
+          if (typeof window !== 'undefined')
+            window.dispatchEvent(new Event('pharma:session-expired'));
+        }
+        throw error;
+      })
       .finally(() => {
         refreshing = null;
       });
@@ -97,7 +109,12 @@ export async function authenticatedRequest<T>(
     await refreshSession();
     response = await send();
   }
-  const data = (await response.json()) as { message?: string };
+  const data =
+    response.status === 204
+      ? {}
+      : ((await response.json()) as { message?: string });
+  if (response.status === 401 && typeof window !== 'undefined')
+    window.dispatchEvent(new Event('pharma:session-expired'));
   if (!response.ok)
     throw Object.assign(
       new Error(data.message || 'Unable to complete your request'),

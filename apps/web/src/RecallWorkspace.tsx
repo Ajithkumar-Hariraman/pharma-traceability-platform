@@ -1,3 +1,4 @@
+import { Lifecycle, StatusBadge } from './ui';
 import { DocumentAttachments } from './DocumentAttachments';
 import { useEffect, useState } from 'react';
 import {
@@ -293,8 +294,19 @@ export function RecallWorkspace({
           </button>
         </form>
       ) : recallId && detail ? (
-        <article className="welcome-panel">
-          <span className="status-pill">{detail.status}</span>
+        <article
+          className={`welcome-panel ${detail.status === 'ACTIVE' ? 'active-recall' : ''}`}
+        >
+          <StatusBadge status={detail.status} />
+          <Lifecycle
+            states={[
+              'DRAFT',
+              'ACTIVE',
+              'CLOSED',
+              ...(detail.status === 'CANCELLED' ? ['CANCELLED'] : []),
+            ]}
+            current={detail.status}
+          />
           <h2>{detail.title}</h2>
           <DocumentAttachments
             base={`${base}/recalls/${detail.id}`}
@@ -450,7 +462,7 @@ export function RecallWorkspace({
                     <td>{r.title}</td>
                     <td>{scope(r)}</td>
                     <td>
-                      <span className="status-pill">{r.status}</span>
+                      <StatusBadge status={r.status} />
                     </td>
                     <td>
                       {r.initiatedAt
