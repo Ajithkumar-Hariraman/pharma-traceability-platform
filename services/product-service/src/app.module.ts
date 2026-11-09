@@ -1,3 +1,5 @@
+import { DocumentController } from './document.controller';
+import { validateStorageEnvironment } from '@pharma/config';
 import { ProductReferenceController } from './product-reference.controller';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -14,7 +16,10 @@ import { HealthController } from './health.controller';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      validate: validateProductEnvironment,
+      validate: (input) => ({
+        ...validateProductEnvironment(input),
+        storage: validateStorageEnvironment(input),
+      }),
     }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
@@ -27,6 +32,7 @@ import { HealthController } from './health.controller';
     }),
   ],
   controllers: [
+    DocumentController,
     ProductController,
     ProductReferenceController,
     HealthController,

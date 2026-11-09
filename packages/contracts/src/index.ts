@@ -366,3 +366,19 @@ export interface VerificationResult {
     severity: string;
   };
 }
+
+export const documentDomains = ['PRODUCT', 'RECALL', 'SHIPMENT'] as const;
+export interface SupportingDocument {
+  id: string;
+  organizationId: string;
+  domainType: (typeof documentDomains)[number];
+  domainId: string;
+  category: string;
+  originalFileName: string;
+  contentType: string;
+  size: number;
+  status: string;
+  uploadedBy: string;
+  createdAt: string;
+  finalizedAt: string | null;
+}

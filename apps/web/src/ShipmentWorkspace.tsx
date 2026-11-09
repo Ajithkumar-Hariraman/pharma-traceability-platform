@@ -1,3 +1,4 @@
+import { DocumentAttachments } from './DocumentAttachments';
 import { useEffect, useState } from 'react';
 import {
   shipmentStatuses,
@@ -247,6 +248,12 @@ export function ShipmentWorkspace({
       {detail && (
         <>
           <p>Status: {detail.status}</p>
+          <DocumentAttachments
+            base={`${base}/${detail.id}`}
+            domain="SHIPMENT"
+            write={write}
+            admin={role === 'ORG_ADMIN'}
+          />
           <p>
             {facility(detail.sourceFacilityId)} →{' '}
             {facility(detail.destinationFacilityId)}

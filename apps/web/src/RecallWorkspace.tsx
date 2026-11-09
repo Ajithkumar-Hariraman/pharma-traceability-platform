@@ -1,3 +1,4 @@
+import { DocumentAttachments } from './DocumentAttachments';
 import { useEffect, useState } from 'react';
 import {
   recallStatuses,
@@ -295,6 +296,12 @@ export function RecallWorkspace({
         <article className="welcome-panel">
           <span className="status-pill">{detail.status}</span>
           <h2>{detail.title}</h2>
+          <DocumentAttachments
+            base={`${base}/recalls/${detail.id}`}
+            domain="RECALL"
+            write={writable}
+            admin={role === 'ORG_ADMIN'}
+          />
           <p>{scope(detail)}</p>
           <dl>
             <dt>Reason</dt>

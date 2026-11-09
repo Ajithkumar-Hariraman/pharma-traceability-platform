@@ -1,3 +1,5 @@
+import { DocumentController } from './document.controller';
+import { validateStorageEnvironment } from '@pharma/config';
 import { VerificationInvalidationConsumer } from './verification-consumer';
 import { DynamoStore } from '@pharma/dynamodb';
 import { VerificationProjection } from './verification-projection';
@@ -22,7 +24,10 @@ import { HealthController } from './health.controller';
     RedisModule,
     ConfigModule.forRoot({
       isGlobal: true,
-      validate: validateRecallEnvironment,
+      validate: (input) => ({
+        ...validateRecallEnvironment(input),
+        storage: validateStorageEnvironment(input),
+      }),
     }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
@@ -34,7 +39,7 @@ import { HealthController } from './health.controller';
       }),
     }),
   ],
-  controllers: [RecallController, HealthController],
+  controllers: [DocumentController, RecallController, HealthController],
   providers: [
     PrismaService,
     RecallService,

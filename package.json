@@ -49,7 +49,9 @@
     "db:recall:generate": "pnpm --filter @pharma/recall-service db:generate",
     "db:recall:deploy": "pnpm --filter @pharma/recall-service db:deploy",
     "test:phase13": "node --test tests/phase13.test.cjs",
-    "test:phase14": "node --test tests/phase14.test.cjs"
+    "test:phase14": "node --test tests/phase14.test.cjs",
+    "test:phase16": "node --test --test-isolation=none tests/phase16.test.cjs",
+    "test:phase16:smoke": "node tests/phase16-smoke.cjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
