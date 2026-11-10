@@ -659,3 +659,44 @@ test('Serial Detail renders commission for a CREATED serial without a parent', a
   assert.ok(commission);
   assert.equal(commission.disabled, false);
 });
+
+test('PALLET Traceability UI requests the exact aggregate UUID and displays packing, dispatch and receipt', async () => {
+  const org = '1200838a-1441-4b95-a524-296fbb7f9e2b';
+  const pallet = '63b493e3-c8ee-453d-b06a-2a1f10800f0f';
+  const requests = [];
+  const { TraceWorkspace } = load('TraceWorkspace.tsx', {
+    './auth': {
+      authenticatedRequest: async (url) => {
+        requests.push(url);
+        return {
+          total: 3,
+          page: 1,
+          pageSize: 25,
+          items: ['packing', 'shipping', 'receiving'].map(
+            (businessStep, i) => ({
+              id: `event-${i}`,
+              eventId: `event-${i}`,
+              eventType: i ? 'TRANSACTION' : 'AGGREGATION',
+              action: i ? 'OBSERVE' : 'ADD',
+              businessStep,
+              eventTime: '2026-11-10T00:00:00Z',
+              recordTime: '2026-11-10T00:00:00Z',
+              aggregateContainerId: i ? null : pallet,
+            }),
+          ),
+        };
+      },
+    },
+  });
+  await render(TraceWorkspace, {
+    organizationId: org,
+    scope: 'aggregates',
+    referenceId: pallet,
+  });
+  assert.deepEqual(requests, [
+    `/organizations/${org}/trace/aggregates/${pallet}?page=1&pageSize=25`,
+  ]);
+  assert.match(container.textContent, /3 events/);
+  for (const step of ['packing', 'shipping', 'receiving'])
+    assert.match(container.textContent, new RegExp(step));
+});

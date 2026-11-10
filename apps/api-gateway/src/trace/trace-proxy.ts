@@ -123,7 +123,19 @@ export class TraceProxy {
             (resource === 'batches' && row.batchId !== reference) ||
             (resource === 'aggregates' &&
               row.aggregateContainerId !== reference &&
-              row.childContainerId !== reference) ||
+              row.childContainerId !== reference &&
+              !(
+                row.eventType === 'TRANSACTION' &&
+                Array.isArray(row.metadata?.contents) &&
+                row.metadata.contents.some(
+                  (content) =>
+                    content !== null &&
+                    typeof content === 'object' &&
+                    !Array.isArray(content) &&
+                    content.kind === 'containers' &&
+                    content.referenceId === reference,
+                )
+              )) ||
             (resource === 'events' &&
               reference &&
               row.eventId !== decodeURIComponent(reference)),

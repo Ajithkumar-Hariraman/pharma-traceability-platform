@@ -1,8 +1,10 @@
 import {
   Messaging,
+  toTrace,
   OutboxPublisher,
   PostgresOutboxStore,
 } from '@pharma/messaging';
+import { TraceCaptureClient } from '../trace-capture.client';
 import { validateOutboxEnvironment } from '@pharma/config';
 import {
   Injectable,
@@ -27,27 +29,31 @@ export class PrismaService
     super({
       datasources: { db: { url: config.get('DATABASE_URL', { infer: true }) } },
     });
-    if (messaging?.enabled)
-      this.outbox = new OutboxPublisher(
-        new PostgresOutboxStore(this),
-        messaging,
-        validateOutboxEnvironment(
-          Object.fromEntries(
-            (
-              [
-                'OUTBOX_POLL_INTERVAL_MS',
-                'OUTBOX_BATCH_SIZE',
-                'OUTBOX_MAX_ATTEMPTS',
-                'OUTBOX_RETRY_BASE_MS',
-                'OUTBOX_RETRY_MAX_MS',
-                'OUTBOX_LEASE_MS',
-                'OUTBOX_RETENTION_DAYS',
-              ] as const
-            ).map((key) => [key, config.get(key)]),
-          ),
+    this.outbox = new OutboxPublisher(
+      new PostgresOutboxStore(this),
+      messaging?.enabled
+        ? messaging
+        : {
+            publish: (event) =>
+              new TraceCaptureClient(config).capture(toTrace(event)),
+          },
+      validateOutboxEnvironment(
+        Object.fromEntries(
+          (
+            [
+              'OUTBOX_POLL_INTERVAL_MS',
+              'OUTBOX_BATCH_SIZE',
+              'OUTBOX_MAX_ATTEMPTS',
+              'OUTBOX_RETRY_BASE_MS',
+              'OUTBOX_RETRY_MAX_MS',
+              'OUTBOX_LEASE_MS',
+              'OUTBOX_RETENTION_DAYS',
+            ] as const
+          ).map((key) => [key, config.get(key)]),
         ),
-        'aggregation-service',
-      );
+      ),
+      'aggregation-service',
+    );
   }
   onApplicationBootstrap() {
     this.outbox?.start();

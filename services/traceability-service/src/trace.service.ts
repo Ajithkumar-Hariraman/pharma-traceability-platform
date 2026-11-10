@@ -253,6 +253,13 @@ export class TraceService {
       where.OR = [
         { aggregateContainerId: aggregate },
         { childContainerId: aggregate },
+        {
+          eventType: 'TRANSACTION',
+          metadata: {
+            path: ['contents'],
+            array_contains: [{ kind: 'containers', referenceId: aggregate }],
+          },
+        },
       ];
     const [items, total] = await this.db.$transaction(
       [

@@ -174,17 +174,16 @@ export class AggregationService {
               });
               if (!result.count)
                 throw new NotFoundException('Relationship not found');
-              if (this.messaging?.enabled)
-                await enqueueEvent(
-                  tx,
-                  aggregationEvent(
-                    organizationId,
-                    parentId,
-                    childId,
-                    type,
-                    remove,
-                  ),
-                );
+              await enqueueEvent(
+                tx,
+                aggregationEvent(
+                  organizationId,
+                  parentId,
+                  childId,
+                  type,
+                  remove,
+                ),
+              );
               return { removed: true };
             }
             if (parent.status !== 'ACTIVE')
@@ -218,17 +217,10 @@ export class AggregationService {
                 ...source,
               },
             });
-            if (this.messaging?.enabled)
-              await enqueueEvent(
-                tx,
-                aggregationEvent(
-                  organizationId,
-                  parentId,
-                  childId,
-                  type,
-                  remove,
-                ),
-              );
+            await enqueueEvent(
+              tx,
+              aggregationEvent(organizationId, parentId, childId, type, remove),
+            );
             return relation;
           },
           { isolationLevel: 'Serializable' },

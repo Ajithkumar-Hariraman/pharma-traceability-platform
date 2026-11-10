@@ -411,6 +411,8 @@ export interface AggregationEnvironment
   extends OrganizationEnvironment, KafkaEnvironment {
   SERIALIZATION_SERVICE_URL: string;
   SERIALIZATION_SERVICE_TIMEOUT_MS: number;
+  TRACEABILITY_SERVICE_URL: string;
+  TRACE_CAPTURE_SECRET: string;
 }
 export function validateAggregationEnvironment(
   input: Record<string, unknown>,
@@ -435,6 +437,13 @@ export function validateAggregationEnvironment(
       'SERIALIZATION_SERVICE_URL',
     ),
     SERIALIZATION_SERVICE_TIMEOUT_MS: Number(raw),
+    TRACEABILITY_SERVICE_URL: validateServiceUrl(
+      input.TRACEABILITY_SERVICE_URL ?? 'http://127.0.0.1:3007',
+      'TRACEABILITY_SERVICE_URL',
+    ),
+    TRACE_CAPTURE_SECRET: validateInternalSecret(
+      input.TRACE_CAPTURE_SECRET ?? input.INTERNAL_IDENTITY_SECRET,
+    ),
   };
 }
 

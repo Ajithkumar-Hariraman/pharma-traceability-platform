@@ -1,3 +1,4 @@
+/* global Response */
 const { test } = require('node:test');
 const { URL } = require('node:url');
 const assert = require('node:assert/strict');
@@ -819,3 +820,212 @@ test('Phase 12 operational readiness reports database/worker availability indepe
   storageAvailable = false;
   await assert.rejects(health.ready(), (e) => e.getStatus() === 503);
 });
+
+test('HTTP-mode aggregation durably captures a PALLET relationship instead of silently losing it', async (t) => {
+  const db = await isolated('aggregation', t);
+  const org = randomUUID();
+  const service = new AggregationService(db, {}, { enabled: false });
+  const pallet = await service.create(org, {
+    containerCode: randomUUID(),
+    packagingLevel: 'PALLET',
+  });
+  const box = await service.create(org, {
+    containerCode: randomUUID(),
+    packagingLevel: 'CASE',
+  });
+  await service.change(
+    org,
+    pallet.id,
+    'containers',
+    box.id,
+    false,
+    randomUUID(),
+    'OPERATOR',
+  );
+  const rows = await db.outboxEvent.findMany();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].aggregateId, pallet.id);
+  const trace = new TraceService(await traceDB(t));
+  const calls = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    calls.push(url);
+    await trace.capture(org, JSON.parse(options.body), 'aggregation-service');
+    return new Response(null, { status: 201 });
+  };
+  t.after(() => {
+    globalThis.fetch = original;
+  });
+  // Use the actual HTTP-mode adapter constructed by the persistence service.
+  await db.outbox.runOnce();
+  assert.equal(calls.length, 1);
+  assert.equal((await db.outboxEvent.findFirst()).status, 'PUBLISHED');
+  assert.equal(
+    (await trace.list(org, {}, { aggregateId: pallet.id })).total,
+    1,
+  );
+});
+
+test(
+  'PALLET transaction → outboxes → real Kafka → receipt → trace → gateway includes packing, shipping and receiving',
+  { timeout: 60000 },
+  async (t) => {
+    const aggregation = await isolated('aggregation', t);
+    const shipments = await isolated('shipment', t);
+    const db = await traceDB(t);
+    const trace = new TraceService(db);
+    const org = randomUUID();
+    const service = new AggregationService(aggregation, {}, unavailable);
+    const pallet = await service.create(org, {
+      containerCode: randomUUID(),
+      packagingLevel: 'PALLET',
+    });
+    const box = await service.create(org, {
+      containerCode: randomUUID(),
+      packagingLevel: 'CASE',
+    });
+    await service.change(
+      org,
+      pallet.id,
+      'containers',
+      box.id,
+      false,
+      randomUUID(),
+      'OPERATOR',
+    );
+    const shipment = await shipments.shipment.create({
+      data: {
+        organizationId: org,
+        shipmentNumber: randomUUID(),
+        sourceFacilityId: randomUUID(),
+        destinationFacilityId: randomUUID(),
+        status: 'READY',
+        contents: { create: { kind: 'containers', referenceId: pallet.id } },
+      },
+    });
+    for (const action of ['dispatch', 'receive'])
+      await shipmentService(shipments).transition(
+        org,
+        shipment.id,
+        action,
+        randomUUID(),
+        'OPERATOR',
+      );
+    const messaging = new Messaging(
+      new ConfigService({
+        EVENT_TRANSPORT: 'kafka',
+        KAFKA_BROKERS: 'localhost:9092',
+        KAFKA_CLIENT_ID: 'pallet-regression',
+        KAFKA_CONSUMER_GROUP_ID: `pallet-${randomUUID()}`,
+      }),
+    );
+    t.after(() => messaging.onModuleDestroy());
+    await messaging.onModuleInit();
+    // Ignore unrelated application events; this group is isolated from live consumers.
+    await messaging.consume((e) =>
+      e.organizationId === org ? trace.consume(e) : Promise.resolve(),
+    );
+    for (const [store, producer] of [
+      [aggregation, 'aggregation-service'],
+      [shipments, 'shipment-service'],
+    ]) {
+      await new OutboxPublisher(
+        new PostgresOutboxStore(store),
+        messaging,
+        config(),
+        producer,
+      ).runOnce();
+      assert.ok(
+        (await store.outboxEvent.findMany()).every(
+          (r) => r.status === 'PUBLISHED',
+        ),
+      );
+    }
+    const deadline = Date.now() + 40000;
+    while (
+      (await db.processedEvent.count({ where: { organizationId: org } })) < 3
+    ) {
+      if (Date.now() > deadline)
+        assert.fail('Kafka did not persist all three receipts');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const event = (await aggregation.outboxEvent.findFirst()).envelope;
+    await messaging.publish(event);
+    await trace.consume(event);
+    assert.equal(
+      await db.processedEvent.count({ where: { organizationId: org } }),
+      3,
+    );
+    assert.equal(
+      await db.traceEvent.count({ where: { organizationId: org } }),
+      3,
+    );
+    const page = await trace.list(org, {}, { aggregateId: pallet.id });
+    assert.equal(page.total, 3);
+    assert.deepEqual(
+      new Set(page.items.map((e) => e.businessStep)),
+      new Set(['packing', 'shipping', 'receiving']),
+    );
+    assert.equal((await trace.list(org, { aggregateId: pallet.id })).total, 3);
+    assert.equal((await trace.list(org, {}, { aggregateId: box.id })).total, 1);
+    assert.equal(
+      (await trace.list(org, {}, { aggregateId: randomUUID() })).total,
+      0,
+    );
+    assert.equal(
+      (await trace.list(randomUUID(), {}, { aggregateId: pallet.id })).total,
+      0,
+    );
+    const {
+      TraceProxy,
+    } = require('../apps/api-gateway/dist/trace/trace-proxy');
+    const user = randomUUID();
+    const proxy = new TraceProxy(
+      new ConfigService({
+        TRACEABILITY_SERVICE_URL: 'http://trace.invalid',
+        INTERNAL_IDENTITY_SECRET: 'x'.repeat(32),
+        AUTH_SERVICE_TIMEOUT_MS: 2000,
+      }),
+      {
+        forward: async () => ({
+          organizationId: org,
+          userId: user,
+          role: 'VIEWER',
+        }),
+      },
+    );
+    const original = globalThis.fetch;
+    globalThis.fetch = async () => Response.json(page);
+    t.after(() => {
+      globalThis.fetch = original;
+    });
+    assert.equal(
+      (
+        await proxy.forward(
+          `/organizations/${org}/trace/aggregates/${pallet.id}`,
+          user,
+        )
+      ).total,
+      3,
+    );
+    globalThis.fetch = async () =>
+      Response.json({
+        ...page,
+        items: [
+          {
+            ...page.items[0],
+            aggregateContainerId: randomUUID(),
+            childContainerId: null,
+          },
+        ],
+        total: 1,
+      });
+    await assert.rejects(
+      proxy.forward(
+        `/organizations/${org}/trace/aggregates/${pallet.id}`,
+        user,
+      ),
+      /Invalid trace response/,
+    );
+  },
+);
