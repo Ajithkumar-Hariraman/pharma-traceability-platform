@@ -42,8 +42,9 @@ export class AggregationController {
   @Get('serials/:id/parent') parent(
     @Param('organizationId', ParseUUIDPipe) org: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: InternalRequest,
   ) {
-    return this.service.parent(org, id);
+    return this.service.parent(org, id, req.userId, req.role);
   }
   @Post('aggregates/:id/items') additems(
     @Param('organizationId', ParseUUIDPipe) org: string,

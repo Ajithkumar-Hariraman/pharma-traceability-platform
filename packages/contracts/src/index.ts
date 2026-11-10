@@ -290,6 +290,9 @@ export interface AggregateContainer {
   createdAt: string;
   updatedAt: string;
 }
+export interface SerialParentResponse {
+  parent: AggregateContainer | null;
+}
 export interface AggregateHierarchy extends AggregateContainer {
   children: AggregateHierarchy[];
   items: SerializedItem[];

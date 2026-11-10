@@ -617,3 +617,45 @@ test('expired refresh clears the session through the shared expiration event', a
   await assert.rejects(auth.authenticatedRequest('/organizations'), /Expired/);
   assert.equal(expired, 1);
 });
+
+test('Serial Detail renders commission for a CREATED serial without a parent', async () => {
+  const item = {
+    id: 'serial-1',
+    batchId: 'batch-1',
+    serialNumber: 'SN-1',
+    status: 'CREATED',
+    commissionedAt: null,
+    decommissionedAt: null,
+  };
+  const { SerialWorkspace } = load('SerialWorkspace.tsx', {
+    './auth': {
+      authenticatedRequest: async (path) => {
+        if (path.endsWith('/parent')) return { parent: null };
+        if (path.endsWith('/serials/serial-1')) return item;
+        if (path.endsWith('/batches/batch-1'))
+          return {
+            id: 'batch-1',
+            productId: 'product-1',
+            gtinId: 'gtin-1',
+            status: 'ACTIVE',
+          };
+        if (path.endsWith('/gtins/gtin-1')) return { id: 'gtin-1' };
+        if (path.endsWith('/products/product-1')) return { id: 'product-1' };
+        throw new Error(`Unexpected request ${path}`);
+      },
+    },
+  });
+  const view = await render(SerialWorkspace, {
+    organizationId: 'org-1',
+    serialId: item.id,
+    role: 'OPERATOR',
+    navigate: () => {},
+  });
+  assert.match(view.textContent, /Unaggregated/);
+  assert.match(view.textContent, /SN-1/);
+  const commission = [...view.querySelectorAll('button')].find(
+    (button) => button.textContent === 'commission serial',
+  );
+  assert.ok(commission);
+  assert.equal(commission.disabled, false);
+});

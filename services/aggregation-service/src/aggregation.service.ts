@@ -61,12 +61,23 @@ export class AggregationService {
     if (!row) throw new NotFoundException('Container not found');
     return row;
   }
-  async parent(organizationId: string, childSerializedItemId: string) {
+  async parent(
+    organizationId: string,
+    childSerializedItemId: string,
+    userId: string,
+    role: OrganizationRole,
+  ) {
+    await this.serials.validate(
+      organizationId,
+      childSerializedItemId,
+      userId,
+      role,
+    );
     const relation = await this.db.aggregationRelation.findFirst({
       where: { organizationId, childSerializedItemId },
       include: { parent: true },
     });
-    return relation?.parent ?? null;
+    return { parent: relation?.parent ?? null };
   }
   async hierarchy(
     organizationId: string,

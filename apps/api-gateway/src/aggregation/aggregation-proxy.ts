@@ -149,7 +149,7 @@ export class AggregationProxy {
         method === 'DELETE'
           ? z.object({ removed: z.literal(true) })
           : path.endsWith('/parent')
-            ? container.nullable()
+            ? z.object({ parent: container.nullable() }).strict()
             : method === 'GET' && path.endsWith('/aggregates')
               ? container.array()
               : method === 'POST' && /\/(items|containers)$/.test(path)
@@ -162,6 +162,14 @@ export class AggregationProxy {
                     .passthrough()
                 : container;
       const data = schema.parse(await response.json());
+      if (
+        path.endsWith('/parent') &&
+        data &&
+        'parent' in data &&
+        data.parent &&
+        container.parse(data.parent).organizationId !== organizationId
+      )
+        throw new Error('Invalid parent ownership');
       const rows = Array.isArray(data)
         ? data
         : data && 'organizationId' in data
