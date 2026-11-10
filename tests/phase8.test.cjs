@@ -71,7 +71,10 @@ test('aggregation database operations, hierarchy, tenant isolation and races', a
     service.change(org, parent.id, kind, id, remove, user, 'OPERATOR');
   await change(inner, 'items', item);
   await assert.rejects(change(box, 'items', item), (e) => e.status === 409);
-  assert.equal((await service.parent(org, item)).id, inner.id);
+  assert.equal(
+    (await service.parent(org, item, user, 'VIEWER')).parent.id,
+    inner.id,
+  );
   await change(inner, 'items', item, true);
   await change(box, 'items', item);
   await change(box, 'items', item, true);
@@ -278,6 +281,7 @@ test('aggregation HTTP routes execute signed requests against PostgreSQL', async
   const org = randomUUID(),
     user = randomUUID(),
     item = randomUUID();
+  let serialStatus = 'CREATED';
   const mock = createServer((req, res) => {
     if (req.url === '/auth/me') {
       res.setHeader('Content-Type', 'application/json');
@@ -328,7 +332,7 @@ test('aggregation HTTP routes execute signed requests against PostgreSQL', async
         gtinId: randomUUID(),
         batchId: randomUUID(),
         serialNumber: '000099',
-        status: 'COMMISSIONED',
+        status: serialStatus,
         commissionedAt: new Date().toISOString(),
         decommissionedAt: null,
         createdAt: new Date().toISOString(),
@@ -417,6 +421,17 @@ test('aggregation HTTP routes execute signed requests against PostgreSQL', async
       ...(method === 'GET' ? {} : { body: raw }),
     });
   }
+  const parentPath = `/organizations/${org}/serials/${item}/parent`;
+  for (serialStatus of ['CREATED', 'COMMISSIONED']) {
+    const lookup = await request('GET', parentPath);
+    assert.equal(lookup.status, 200);
+    assert.deepEqual(await lookup.json(), { parent: null });
+  }
+  const unknown = await request(
+    'GET',
+    `/organizations/${org}/serials/${randomUUID()}/parent`,
+  );
+  assert.equal(unknown.status, 404);
   const base = `/organizations/${org}/aggregates`;
   let response = await request('POST', base, {
     containerCode: '000-http',
@@ -428,6 +443,9 @@ test('aggregation HTTP routes execute signed requests against PostgreSQL', async
     serializedItemId: item,
   });
   assert.equal(response.status, 201, await response.text());
+  response = await request('GET', parentPath);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { parent: inner });
   response = await request('GET', `${base}/${inner.id}/hierarchy`);
   assert.equal(response.status, 200);
   assert.equal((await response.json()).items[0].serialNumber, '000099');
@@ -494,6 +512,14 @@ test('aggregation HTTP routes execute signed requests against PostgreSQL', async
   }
   assert.ok(gatewayReady, gatewayOutput);
   const gatewayBase = `http://127.0.0.1:${gatewayPort}/api${base}`;
+  for (serialStatus of ['CREATED', 'COMMISSIONED']) {
+    const lookup = await globalThis.fetch(
+      `http://127.0.0.1:${gatewayPort}/api${parentPath}`,
+      { headers: { Authorization: 'Bearer test-token' } },
+    );
+    assert.equal(lookup.status, 200);
+    assert.deepEqual(await lookup.json(), { parent: null });
+  }
   response = await globalThis.fetch(gatewayBase, {
     headers: { Authorization: 'Bearer test-token' },
   });

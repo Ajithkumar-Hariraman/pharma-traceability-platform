@@ -8,6 +8,7 @@ import {
   canExecuteSerialCommand,
   canTransitionSerial,
   type AggregateContainer,
+  type SerialParentResponse,
   type SerializedItem,
   type Batch,
   type Product,
@@ -80,10 +81,10 @@ export function SerialWorkspace({
           : null;
         if (item) {
           const parentContainer =
-            await authenticatedRequest<AggregateContainer | null>(
+            await authenticatedRequest<SerialParentResponse>(
               `${base}/serials/${item.id}/parent`,
             );
-          if (active) setParent(parentContainer);
+          if (active) setParent(parentContainer.parent);
         }
         const ownerBatch = item?.batchId ?? batchId;
         if (!ownerBatch) {
